@@ -25,6 +25,10 @@ class AppState extends ChangeNotifier {
   int patientTabIndex = 0;
   int doctorTabIndex = 0;
 
+  bool doctorNotificationsEnabled = true;
+  String doctorLanguage = 'English';
+  bool doctorPrivacyModeEnabled = true;
+
   List<Doctor> doctors = <Doctor>[];
   List<Appointment> appointments = <Appointment>[];
   List<HealthRecord> records = <HealthRecord>[];
@@ -147,6 +151,21 @@ class AppState extends ChangeNotifier {
 
   void setDoctorTab(int index) {
     doctorTabIndex = index;
+    notifyListeners();
+  }
+
+  void setDoctorNotificationsEnabled(bool value) {
+    doctorNotificationsEnabled = value;
+    notifyListeners();
+  }
+
+  void setDoctorLanguage(String value) {
+    doctorLanguage = value;
+    notifyListeners();
+  }
+
+  void setDoctorPrivacyModeEnabled(bool value) {
+    doctorPrivacyModeEnabled = value;
     notifyListeners();
   }
 

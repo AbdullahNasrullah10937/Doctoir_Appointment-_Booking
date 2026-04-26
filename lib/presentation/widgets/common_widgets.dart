@@ -168,15 +168,17 @@ class AssetCircleAvatar extends StatelessWidget {
       radius: radius,
       backgroundColor: AppTheme.accentBlue.withValues(alpha: 0.22),
       child: ClipOval(
-        child: imageAsset == null
-            ? _fallback()
-            : Image.asset(
-                imageAsset!,
-                fit: BoxFit.cover,
-                width: radius * 2,
-                height: radius * 2,
-                errorBuilder: (_, _, _) => _fallback(),
-              ),
+        child: SizedBox(
+          width: radius * 2,
+          height: radius * 2,
+          child: imageAsset == null
+              ? _fallback()
+              : Image.asset(
+                  imageAsset!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => _fallback(),
+                ),
+        ),
       ),
     );
   }

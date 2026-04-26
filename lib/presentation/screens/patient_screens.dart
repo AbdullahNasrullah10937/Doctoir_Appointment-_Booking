@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/constants/app_assets.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/entities/app_entities.dart';
 import '../routes/app_router.dart';
@@ -60,6 +61,20 @@ class _PatientShellScreenState extends State<PatientShellScreen> {
                       ],
                     ),
                     const Spacer(),
+                    InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: () {
+                        Navigator.of(context).pushNamed(AppRouter.profileSetup);
+                      },
+                      child: AssetCircleAvatar(
+                        imageAsset: AppAssets.patientAhmed,
+                        initials: _initials(
+                          appState.profile?.fullName ?? 'Patient',
+                        ),
+                        radius: 16,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     Stack(
                       clipBehavior: Clip.none,
                       children: <Widget>[
@@ -609,6 +624,7 @@ class _PatientSettingsTab extends StatelessWidget {
           child: Row(
             children: <Widget>[
               AssetCircleAvatar(
+                imageAsset: AppAssets.patientAhmed,
                 initials: _initials(appState.profile?.fullName ?? 'User'),
               ),
               const SizedBox(width: 10),
@@ -2054,19 +2070,29 @@ class EmergencyNumbersScreen extends StatelessWidget {
                 context,
                 icon: Icons.local_hospital_rounded,
                 title: 'Ambulance',
-                subtitle: '1122 • Punjab Emergency',
+                number: '1122',
+                description: 'Punjab Emergency Service',
+              ),
+              _emergencyCard(
+                context,
+                icon: Icons.local_police_rounded,
+                title: 'Police Helpline',
+                number: '15',
+                description: 'National Police Emergency',
               ),
               _emergencyCard(
                 context,
                 icon: Icons.health_and_safety_rounded,
-                title: 'Nearest Hospital',
-                subtitle: 'City Hospital • 0.8 km',
+                title: 'Hospital Assistance',
+                number: '1234',
+                description: 'Hospital Information Desk',
               ),
               _emergencyCard(
                 context,
                 icon: Icons.call_rounded,
-                title: 'Emergency Helpline',
-                subtitle: '115 • Edhi Foundation',
+                title: 'Health Support Hotline',
+                number: '44488',
+                description: '24/7 Patient Support',
               ),
             ],
           ),
@@ -2080,7 +2106,8 @@ Widget _emergencyCard(
   BuildContext context, {
   required IconData icon,
   required String title,
-  required String subtitle,
+  required String number,
+  required String description,
 }) {
   return MediQCard(
     child: Row(
@@ -2095,15 +2122,27 @@ Widget _emergencyCard(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-              Text(subtitle, style: const TextStyle(color: AppTheme.textMuted)),
+              const SizedBox(height: 2),
+              Text(
+                number,
+                style: const TextStyle(
+                  color: AppTheme.danger,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                ),
+              ),
+              Text(
+                description,
+                style: const TextStyle(color: AppTheme.textMuted),
+              ),
             ],
           ),
         ),
         ElevatedButton(
           onPressed: () {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text('Dialing $title (mock)...')));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Dialing $number - $title (mock)...')),
+            );
           },
           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.danger),
           child: const Text('Call'),

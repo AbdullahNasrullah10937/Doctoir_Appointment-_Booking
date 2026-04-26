@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/constants/app_assets.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/entities/app_entities.dart';
 import '../routes/app_router.dart';
@@ -41,7 +42,17 @@ class DoctorShellScreen extends StatelessWidget {
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const Spacer(),
-                    AssetCircleAvatar(initials: 'SA', radius: 16),
+                    InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: () {
+                        appState.setDoctorTab(3);
+                      },
+                      child: AssetCircleAvatar(
+                        imageAsset: AppAssets.doctorSara,
+                        initials: 'SA',
+                        radius: 16,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -409,6 +420,100 @@ class _DoctorSettingsTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final appState = AppScope.of(context);
 
+    void showNotificationPreferences() {
+      showDialog<void>(
+        context: context,
+        builder: (dialogContext) {
+          var notificationsEnabled = appState.doctorNotificationsEnabled;
+          return StatefulBuilder(
+            builder: (dialogContext, setDialogState) {
+              return AlertDialog(
+                title: const Text('Notification Preferences'),
+                content: SwitchListTile(
+                  value: notificationsEnabled,
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Enable notifications'),
+                  onChanged: (value) {
+                    setDialogState(() {
+                      notificationsEnabled = value;
+                    });
+                    appState.setDoctorNotificationsEnabled(value);
+                  },
+                ),
+                actions: <Widget>[
+                  TextButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    child: const Text('Close'),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
+    }
+
+    void showLanguagePicker() {
+      showDialog<void>(
+        context: context,
+        builder: (dialogContext) {
+          return SimpleDialog(
+            title: const Text('Language'),
+            children: <Widget>[
+              SimpleDialogOption(
+                onPressed: () {
+                  appState.setDoctorLanguage('English');
+                  Navigator.of(dialogContext).pop();
+                },
+                child: const Text('English'),
+              ),
+              SimpleDialogOption(
+                onPressed: () {
+                  appState.setDoctorLanguage('Urdu');
+                  Navigator.of(dialogContext).pop();
+                },
+                child: const Text('Urdu'),
+              ),
+            ],
+          );
+        },
+      );
+    }
+
+    void showPrivacySettings() {
+      showDialog<void>(
+        context: context,
+        builder: (dialogContext) {
+          var privacyEnabled = appState.doctorPrivacyModeEnabled;
+          return StatefulBuilder(
+            builder: (dialogContext, setDialogState) {
+              return AlertDialog(
+                title: const Text('Privacy Settings'),
+                content: SwitchListTile(
+                  value: privacyEnabled,
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Private mode'),
+                  subtitle: const Text('Hide sensitive info on shared screens'),
+                  onChanged: (value) {
+                    setDialogState(() {
+                      privacyEnabled = value;
+                    });
+                    appState.setDoctorPrivacyModeEnabled(value);
+                  },
+                ),
+                actions: <Widget>[
+                  TextButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    child: const Text('Close'),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
+    }
+
     return ListView(
       key: const ValueKey<String>('doctor-settings-tab'),
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
@@ -420,20 +525,20 @@ class _DoctorSettingsTab extends StatelessWidget {
                 leading: const Icon(Icons.notifications_rounded),
                 title: const Text('Notification Preferences'),
                 trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () {},
+                onTap: showNotificationPreferences,
               ),
               ListTile(
                 leading: const Icon(Icons.language_rounded),
                 title: const Text('Language'),
-                subtitle: const Text('English'),
+                subtitle: Text(appState.doctorLanguage),
                 trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () {},
+                onTap: showLanguagePicker,
               ),
               ListTile(
                 leading: const Icon(Icons.privacy_tip_rounded),
                 title: const Text('Privacy Settings'),
                 trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () {},
+                onTap: showPrivacySettings,
               ),
             ],
           ),
