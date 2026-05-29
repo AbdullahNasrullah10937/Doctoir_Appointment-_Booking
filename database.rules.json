@@ -1,0 +1,83 @@
+{
+  "rules": {
+
+    "users": {
+      "$uid": {
+        ".read":  "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+
+        "meta": {
+          ".validate": "newData.hasChildren(['appRole', 'updatedAtMillis'])",
+          "appRole": {
+            ".validate": "!data.exists() && newData.isString() && (newData.val() === 'patient' || newData.val() === 'doctor')"
+          },
+          "updatedAtMillis": {
+            ".validate": "newData.isNumber()"
+          }
+        },
+
+        "profile": {
+          ".validate": "newData.hasChildren(['encryptedData', 'nameHash', 'age', 'gender'])"
+        },
+
+        "appointments": {
+          "$appointmentId": {
+            ".validate": "newData.hasChildren(['id', 'dateTimeUtcMillis', 'tokenNumber', 'status', 'doctorId'])"
+          }
+        },
+
+        "records": {
+          "$recordId": {
+            ".validate": "newData.hasChildren(['id', 'dateUtcMillis', 'doctorName', 'issue'])"
+          }
+        },
+
+        "reminders": {
+          "$reminderId": {
+            ".validate": "newData.hasChildren(['id', 'medicineName', 'isEnabled'])"
+          }
+        },
+
+        "notifications": {
+          "$notificationId": {
+            ".validate": "newData.hasChildren(['id', 'title', 'message', 'type', 'isUnread'])"
+          }
+        },
+
+        "queueSnapshot": {
+          ".validate": "newData.hasChildren(['doctorName', 'yourToken', 'currentToken', 'patientsAhead'])"
+        }
+      }
+    },
+
+    "doctors": {
+      "$uid": {
+        "queue": {
+          "$caseId": {
+            ".read":  "auth != null && auth.uid === $uid",
+            ".write": "auth != null",
+            ".validate": "newData.hasChildren(['id', 'patientUid', 'patientName', 'token']) && newData.child('patientUid').val() === auth.uid"
+          }
+        },
+
+        "schedule": {
+          ".read":  "auth != null",
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.hasChildren(['workingDays', 'morningStart', 'morningEnd'])"
+        }
+      }
+    },
+
+    "catalog": {
+      "doctors": {
+        ".read": "auth != null",
+
+        "$doctorId": {
+          ".write": "auth != null && auth.uid === $doctorId",
+          ".validate": "newData.hasChildren(['id', 'name', 'specialty', 'hospital', 'rating'])"
+        }
+      }
+    }
+
+  }
+}

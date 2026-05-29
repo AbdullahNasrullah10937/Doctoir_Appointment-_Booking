@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "771232081967",
+    "firebase_url": "https://doctor-appointment--booking-default-rtdb.firebaseio.com",
+    "project_id": "doctor-appointment--booking",
+    "storage_bucket": "doctor-appointment--booking.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:771232081967:android:b8893b5e9b2fae42a0beda",
+        "android_client_info": {
+          "package_name": "com.example.doctor_booking_system"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "771232081967-lu9k2cdkm8e3caqeg7hqjcn7c43p548e.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.doctor_booking_system",
+            "certificate_hash": "ea3597a18618cb949203100ddc6aa8d992bba12d"
+          }
+        },
+        {
+          "client_id": "771232081967-cbnbj8hpnv7rk1jj44u96e5umrsosnjc.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDB8WqRpUWc7p4S3o0Wys768oydXWNWbI4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "771232081967-cbnbj8hpnv7rk1jj44u96e5umrsosnjc.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "771232081967-pg9oj3oc12vh2ld4b5lfo642e025bvjh.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.doctorBookingSystem"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

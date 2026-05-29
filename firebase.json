@@ -1,0 +1,25 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "doctor-appointment--booking",
+          "appId": "1:771232081967:android:b8893b5e9b2fae42a0beda",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "doctor-appointment--booking",
+          "configurations": {
+            "android": "1:771232081967:android:b8893b5e9b2fae42a0beda",
+            "web": "1:771232081967:web:11f1cc3e855eaab4a0beda"
+          }
+        }
+      }
+    }
+  },
+  "database": {
+    "rules": "database.rules.json"
+  }
+}

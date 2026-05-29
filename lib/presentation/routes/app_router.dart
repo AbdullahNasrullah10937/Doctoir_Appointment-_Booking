@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/entities/app_entities.dart';
-import '../screens/auth_screens.dart';
-import '../screens/doctor_screens.dart';
-import '../screens/patient_screens.dart';
+import '../screens/screens.dart';
 
 class AppRouter {
   const AppRouter._();
@@ -12,7 +10,6 @@ class AppRouter {
   static const String onboarding = '/onboarding';
   static const String login = '/auth/login';
   static const String signup = '/auth/signup';
-  static const String otp = '/auth/otp';
   static const String profileSetup = '/auth/profile-setup';
 
   static const String patientShell = '/patient/shell';
@@ -47,10 +44,7 @@ class AppRouter {
         return MaterialPageRoute<void>(builder: (_) => const LoginScreen());
       case signup:
         return MaterialPageRoute<void>(builder: (_) => const SignupScreen());
-      case otp:
-        return MaterialPageRoute<void>(
-          builder: (_) => const OtpVerificationScreen(),
-        );
+
       case profileSetup:
         return MaterialPageRoute<void>(
           builder: (_) => const ProfileSetupScreen(),

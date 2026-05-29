@@ -27,8 +27,8 @@ class _MediQAppState extends State<MediQApp> {
       state: _state,
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'MediQ',
-        theme: AppTheme.dark,
+        title: 'Qurexa',
+        theme: AppTheme.light,
         onGenerateRoute: AppRouter.onGenerateRoute,
         initialRoute: AppRouter.splash,
       ),

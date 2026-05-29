@@ -9,7 +9,6 @@ class UserProfile {
     required this.fullName,
     required this.age,
     required this.gender,
-    required this.phone,
     this.bloodGroup,
     this.chronicConditions,
   });
@@ -17,7 +16,6 @@ class UserProfile {
   final String fullName;
   final int age;
   final String gender;
-  final String phone;
   final String? bloodGroup;
   final String? chronicConditions;
 
@@ -25,7 +23,6 @@ class UserProfile {
     String? fullName,
     int? age,
     String? gender,
-    String? phone,
     String? bloodGroup,
     String? chronicConditions,
   }) {
@@ -33,7 +30,6 @@ class UserProfile {
       fullName: fullName ?? this.fullName,
       age: age ?? this.age,
       gender: gender ?? this.gender,
-      phone: phone ?? this.phone,
       bloodGroup: bloodGroup ?? this.bloodGroup,
       chronicConditions: chronicConditions ?? this.chronicConditions,
     );
@@ -292,6 +288,7 @@ class PatientCase {
     required this.token,
     required this.symptoms,
     required this.conditions,
+    this.patientUid,
     this.patientImageAsset,
   });
 
@@ -302,6 +299,9 @@ class PatientCase {
   final int token;
   final String symptoms;
   final List<String> conditions;
+  /// Firebase UID of the patient who booked this queue slot.
+  /// Required by the database rule: `patientUid === auth.uid`.
+  final String? patientUid;
   final String? patientImageAsset;
 }
 

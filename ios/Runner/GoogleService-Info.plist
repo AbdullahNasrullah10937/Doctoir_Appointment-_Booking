@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>771232081967-pg9oj3oc12vh2ld4b5lfo642e025bvjh.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.771232081967-pg9oj3oc12vh2ld4b5lfo642e025bvjh</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>771232081967-lu9k2cdkm8e3caqeg7hqjcn7c43p548e.apps.googleusercontent.com</string>
+	<key>API_KEY</key>
+	<string>AIzaSyBJPxIvRz7pq1IAGOiD6udrFkW2kBX9wi4</string>
+	<key>GCM_SENDER_ID</key>
+	<string>771232081967</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.example.doctorBookingSystem</string>
+	<key>PROJECT_ID</key>
+	<string>doctor-appointment--booking</string>
+	<key>STORAGE_BUCKET</key>
+	<string>doctor-appointment--booking.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:771232081967:ios:3c455f4303d5e672a0beda</string>
+	<key>DATABASE_URL</key>
+	<string>https://doctor-appointment--booking-default-rtdb.firebaseio.com</string>
+</dict>
+</plist>

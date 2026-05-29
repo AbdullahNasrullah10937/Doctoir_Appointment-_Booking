@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:doctor_booking_system/presentation/screens/auth_screens.dart';
+import 'package:doctor_booking_system/presentation/screens/screens.dart';
 import 'package:doctor_booking_system/presentation/state/app_scope.dart';
 import 'package:doctor_booking_system/presentation/state/app_state.dart';
 
