@@ -44,6 +44,9 @@ dependencies:
   encrypt: ^5.0.3
   flutter_secure_storage: ^9.2.2
   crypto: ^3.0.3
+  google_generative_ai: ^0.4.7
+  flutter_dotenv: ^5.2.1
+  http: ^1.2.1
 
 dev_dependencies:
   flutter_test:
@@ -67,6 +70,7 @@ flutter:
   # the material Icons class.
   uses-material-design: true
   assets:
+    - .env
     - assets/images/branding/
     - assets/images/doctors/
     - assets/images/onboarding/

@@ -1,16 +1,21 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../core/firebase/firebase_bootstrap.dart';
+import '../../core/security/emergency_parser.dart';
+import '../../core/services/groq_service.dart';
 import '../../data/firebase/patient_cloud_sync.dart';
 import '../../data/repositories/mock_app_repository.dart';
 import '../../domain/entities/app_entities.dart';
 import '../../domain/entities/role_mismatch_exception.dart';
 import '../../domain/repositories/app_repository.dart';
+import '../widgets/screen_helpers.dart';
 
 class AppState extends ChangeNotifier {
   AppState({AppRepository? repository})
@@ -44,6 +49,27 @@ class AppState extends ChangeNotifier {
   StreamSubscription<QueueSnapshot?>? _queueSnapshotSub;
   StreamSubscription<List<PatientCase>>? _doctorQueueSub;
   StreamSubscription<DoctorSchedule?>? _doctorScheduleSub;
+
+  final GroqService _groqService = GroqService();
+
+  List<ChatMessage> aiChatHistory = <ChatMessage>[
+    const ChatMessage(
+      text: 'Hello! I\'m your Qurexa AI Health Assistant. Ask me anything about your symptoms or health concerns.',
+      isUser: false,
+    ),
+  ];
+  bool isAiAssistantTyping = false;
+  bool showEmergencyBanner = false;
+
+  // Symptom Checker Triage State
+  bool isSymptomCheckerLoading = false;
+  String? symptomCheckerError;
+  String triageSummary = '';
+  String triageUrgency = ''; // EMERGENCY, URGENT, NON_URGENT, SELF_CARE
+  String triageRationalization = '';
+  List<String> triageSpecialties = <String>[];
+  List<String> triageFollowUps = <String>[];
+  List<String> triageConditions = <String>[];
 
   String? firebaseUserId;
 
@@ -208,6 +234,9 @@ class AppState extends ChangeNotifier {
     }
 
     try {
+      // Force account selection screen by clearing any existing system-level Google client session
+      await _googleSignIn.signOut().catchError((_) => null);
+      
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
         // User cancelled the Google sign-in flow
@@ -461,6 +490,7 @@ class AppState extends ChangeNotifier {
         notifyListeners();
       });
     }
+
   }
 
   void _stopRealtimeListeners() {
@@ -480,6 +510,15 @@ class AppState extends ChangeNotifier {
     _queueSnapshotSub = null;
     _doctorQueueSub = null;
     _doctorScheduleSub = null;
+    
+    // Clear chat history on logout
+    aiChatHistory = <ChatMessage>[
+      const ChatMessage(
+        text: 'Hello! I\'m your Qurexa AI Health Assistant. Ask me anything about your symptoms or health concerns.',
+        isUser: false,
+      ),
+    ];
+    showEmergencyBanner = false;
   }
 
   List<Doctor> filterDoctors({
@@ -666,9 +705,283 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void runSymptomChecker(String symptomText) {
-    latestAiSuggestions = _repository.suggestSpecialists(symptomText);
+  /// Fetches the full message list from Firebase RTDB and displays it in the UI.
+  Future<void> loadAiChatHistory() async {
+    final uid = firebaseUserId;
+    if (uid == null) return;
+
+    if (!FirebaseBootstrap.enabled) {
+      notifyListeners();
+      return;
+    }
+
+    try {
+      final latestRef = FirebaseDatabase.instance.ref('users/$uid/chat_sessions/latest/messages');
+      final snapshot = await latestRef.get();
+
+      if (snapshot.exists) {
+        final value = snapshot.value;
+        List<dynamic> list = <dynamic>[];
+        if (value is List) {
+          list = value;
+        } else if (value is Map) {
+          final sortedKeys = value.keys
+              .map((k) => int.tryParse(k.toString()) ?? 0)
+              .toList()
+            ..sort();
+          list = sortedKeys.map((k) => value[k.toString()]).toList();
+        }
+
+        if (list.isNotEmpty) {
+          aiChatHistory = list
+              .map((item) {
+                if (item is Map) {
+                  final map = Map<String, dynamic>.from(item);
+                  return ChatMessage(
+                    text: map['text'] as String? ?? '',
+                    isUser: map['isUser'] as bool? ?? false,
+                  );
+                }
+                return const ChatMessage(text: '', isUser: false);
+              })
+              .where((m) => m.text.isNotEmpty)
+              .toList();
+        } else {
+          _resetChatHistoryToGreeting();
+        }
+      } else {
+        _resetChatHistoryToGreeting();
+      }
+    } catch (e) {
+      debugPrint('Error loading chat history: $e');
+      _resetChatHistoryToGreeting();
+    }
     notifyListeners();
+  }
+
+  /// Starts a fresh chat session, archiving the current latest messages to a timestamped session path.
+  Future<void> startNewChatSession() async {
+    final uid = firebaseUserId;
+    if (uid == null) return;
+
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+
+    // Filter out the greeting message to only persist actual chat history
+    final actualMessages = aiChatHistory
+        .where((m) => m.text != 'Hello! I\'m your Qurexa AI Health Assistant. Ask me anything about your symptoms or health concerns.')
+        .map((m) => {
+              'text': m.text,
+              'isUser': m.isUser,
+            })
+        .toList();
+
+    if (FirebaseBootstrap.enabled && actualMessages.isNotEmpty) {
+      try {
+        // Archive current session under users/{uid}/chat_sessions/{timestamp}
+        final archiveRef = FirebaseDatabase.instance.ref('users/$uid/chat_sessions/$timestamp');
+        await archiveRef.set({
+          'messages': actualMessages,
+          'timestamp': timestamp,
+        });
+
+        // Clear the latest session in the database
+        final latestRef = FirebaseDatabase.instance.ref('users/$uid/chat_sessions/latest');
+        await latestRef.remove();
+      } catch (e) {
+        debugPrint('Error archiving session: $e');
+      }
+    }
+
+    _resetChatHistoryToGreeting();
+    notifyListeners();
+  }
+
+  void _resetChatHistoryToGreeting() {
+    aiChatHistory = <ChatMessage>[
+      const ChatMessage(
+        text: 'Hello! I\'m your Qurexa AI Health Assistant. Ask me anything about your symptoms or health concerns.',
+        isUser: false,
+      ),
+    ];
+  }
+
+  Stream<String> streamAssistantChat(String userMessage) async* {
+    isAiAssistantTyping = true;
+    showEmergencyBanner = false;
+    notifyListeners();
+
+    final uid = firebaseUserId;
+
+    // 1. Multilingual Local Safety Keyword & Regex Check
+    if (EmergencyParser.isEmergency(userMessage)) {
+      isAiAssistantTyping = false;
+      showEmergencyBanner = true;
+
+      const warningText =
+          '⚠️ CRITICAL EMERGENCY DETECTED: Your symptoms suggest a potential '
+          'acute medical emergency. Bypassing AI analysis. Please immediately '
+          'dial 1122 or 15 or proceed to the nearest emergency room.';
+
+      aiChatHistory = <ChatMessage>[
+        ...aiChatHistory,
+        ChatMessage(text: userMessage, isUser: true),
+        const ChatMessage(text: warningText, isUser: false),
+      ];
+      notifyListeners();
+
+      if (uid != null && FirebaseBootstrap.enabled) {
+        try {
+          final messagesRef = FirebaseDatabase.instance.ref('users/$uid/chat_sessions/latest/messages');
+          final actualMessages = aiChatHistory
+              .where((m) => m.text != 'Hello! I\'m your Qurexa AI Health Assistant. Ask me anything about your symptoms or health concerns.')
+              .map((m) => {
+                    'text': m.text,
+                    'isUser': m.isUser,
+                  })
+              .toList();
+          await messagesRef.set(actualMessages);
+        } catch (e) {
+          debugPrint('Error saving emergency pair: $e');
+        }
+      }
+
+      yield warningText;
+      return;
+    }
+
+    // Append user message locally
+    aiChatHistory = <ChatMessage>[
+      ...aiChatHistory,
+      ChatMessage(text: userMessage, isUser: true),
+    ];
+    notifyListeners();
+
+    // 2. Prepare conversation history in OpenAI message format.
+    //    Use a token-efficient sliding window: only pass the last 6 items as context.
+    final rawHistory = aiChatHistory
+        .where((m) => m.text != 'Hello! I\'m your Qurexa AI Health Assistant. Ask me anything about your symptoms or health concerns.')
+        .toList();
+
+    // Remove the new user message we just added from history context since it is passed explicitly as the last item
+    if (rawHistory.isNotEmpty && rawHistory.last.text == userMessage && rawHistory.last.isUser) {
+      rawHistory.removeLast();
+    }
+
+    final windowedHistory = rawHistory.length > 6
+        ? rawHistory.sublist(rawHistory.length - 6)
+        : rawHistory;
+
+    final messages = <Map<String, String>>[
+      // Inject patient bio context if available
+      if (profileCompleted && profile != null)
+        <String, String>{
+          'role': 'user',
+          'content':
+              '[Context] The current patient is a ${profile!.age}-year-old '
+              '${profile!.gender}. Keep this in mind for all replies.',
+        },
+      // Map windowed chat history to OpenAI role format
+      ...windowedHistory.map((m) => <String, String>{
+            'role': m.isUser ? 'user' : 'assistant',
+            'content': m.text,
+          }),
+      // Append the new user message
+      <String, String>{'role': 'user', 'content': userMessage},
+    ];
+
+    // 3. Stream response from Groq (token-by-token SSE)
+    final stream = _groqService.streamChatResponse(messages);
+    final fullResponseBuffer = StringBuffer();
+
+    await for (final delta in stream) {
+      fullResponseBuffer.write(delta);
+      // Yield cumulative text so the UI can render progressively
+      yield fullResponseBuffer.toString();
+    }
+
+    isAiAssistantTyping = false;
+
+    // 4. Persist the complete AI response
+    final fullResponse = fullResponseBuffer.toString();
+    if (fullResponse.isNotEmpty) {
+      aiChatHistory = <ChatMessage>[
+        ...aiChatHistory,
+        ChatMessage(text: fullResponse, isUser: false),
+      ];
+      notifyListeners();
+
+      if (uid != null && FirebaseBootstrap.enabled) {
+        try {
+          final messagesRef = FirebaseDatabase.instance.ref('users/$uid/chat_sessions/latest/messages');
+          final actualMessages = aiChatHistory
+              .where((m) => m.text != 'Hello! I\'m your Qurexa AI Health Assistant. Ask me anything about your symptoms or health concerns.')
+              .map((m) => {
+                    'text': m.text,
+                    'isUser': m.isUser,
+                  })
+              .toList();
+          await messagesRef.set(actualMessages);
+        } catch (e) {
+          debugPrint('Error saving chat session: $e');
+        }
+      }
+    } else {
+      notifyListeners();
+    }
+  }
+
+  Future<void> runSymptomChecker(String symptomText) async {
+    isSymptomCheckerLoading = true;
+    symptomCheckerError = null;
+    notifyListeners();
+
+    // 1. Multilingual Local Safety Keyword & Regex Check
+    if (EmergencyParser.isEmergency(symptomText)) {
+      triageSummary = "Urgent clinical attention required: Safety parser intercepted high-risk emergency markers.";
+      triageUrgency = "EMERGENCY";
+      triageRationalization = "Your reported symptoms match indicators of an acute medical emergency. Bypassing AI to ensure zero delay of clinical care.";
+      triageSpecialties = <String>["Emergency Medicine", "Cardiologist", "Pulmonologist"];
+      triageFollowUps = <String>["Immediately dial emergency numbers or proceed to the nearest hospital."];
+      triageConditions = <String>["Acute Emergency Condition"];
+      latestAiSuggestions = triageSpecialties;
+      isSymptomCheckerLoading = false;
+      notifyListeners();
+      return;
+    }
+
+    try {
+      final rawResponse = await _groqService.runSymptomTriage(symptomText);
+      
+      // 2. Resilient JSON extraction via regex matching (isolates JSON from any wrapping markdown text)
+      final jsonMatch = RegExp(r'\{[\s\S]*\}').firstMatch(rawResponse);
+      if (jsonMatch == null) {
+        throw const FormatException("Invalid or malformed response format from triage engine.");
+      }
+
+      final parsed = jsonDecode(jsonMatch.group(0)!) as Map<String, dynamic>;
+      
+      triageSummary = parsed['summary'] as String? ?? 'Symptoms cataloged successfully.';
+      triageUrgency = (parsed['urgency'] as String? ?? 'NON_URGENT').toUpperCase();
+      triageRationalization = parsed['rationalization'] as String? ?? '';
+      
+      triageSpecialties = List<String>.from(parsed['suggested_specialties'] as List? ?? <String>[]);
+      triageFollowUps = List<String>.from(parsed['follow_up_questions'] as List? ?? <String>[]);
+      triageConditions = List<String>.from(parsed['cautious_conditions'] as List? ?? <String>[]);
+
+      latestAiSuggestions = triageSpecialties.isNotEmpty ? triageSpecialties : <String>['General Physician'];
+    } catch (e) {
+      symptomCheckerError = "Clinical Triage Suspended: $e";
+      triageSummary = "We encountered a temporary processing issue cataloging your symptoms.";
+      triageUrgency = "URGENT";
+      triageRationalization = "Please consult a medical practitioner directly to evaluate your symptoms safely.";
+      triageSpecialties = <String>["General Physician"];
+      triageFollowUps = <String>["Please share your symptoms in detail with your doctor."];
+      triageConditions = <String>["Triage Assessment Incomplete"];
+      latestAiSuggestions = triageSpecialties;
+    } finally {
+      isSymptomCheckerLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<Prescription> getPrescriptionForRecord(HealthRecord record) {

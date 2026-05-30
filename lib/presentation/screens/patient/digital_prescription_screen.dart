@@ -94,7 +94,7 @@ class _DigitalPrescriptionScreenState extends State<DigitalPrescriptionScreen> {
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: <Widget>[
-                                            const Text('MediQ Digital Prescription', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
+                                            const Text('Qurexa Digital Prescription', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
                                             Text(formatDate(rx.date), style: const TextStyle(color: Colors.white70, fontSize: 12)),
                                           ],
                                         ),

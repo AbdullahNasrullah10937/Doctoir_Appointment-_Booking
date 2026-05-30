@@ -92,8 +92,8 @@ class HelpSupportScreen extends StatelessWidget {
                   const SectionHeading(title: 'Contact Us'),
                   // Contact cards
                   _ContactCard(icon: Icons.chat_rounded, color: AppTheme.accentBlue, title: 'Live Chat', subtitle: 'Average response in 2 minutes', onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Live chat opened (mock).')))),
-                  _ContactCard(icon: Icons.email_rounded, color: AppTheme.success, title: 'Email Support', subtitle: 'support@mediq.pk', onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Email client opened (mock).')))),
-                  _ContactCard(icon: Icons.phone_rounded, color: AppTheme.warning, title: 'Call Helpline', subtitle: '+92-311-MEDIQ-PK', onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Dialing helpline (mock).')))),
+                  _ContactCard(icon: Icons.email_rounded, color: AppTheme.success, title: 'Email Support', subtitle: 'support@qurexa.pk', onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Email client opened (mock).')))),
+                  _ContactCard(icon: Icons.phone_rounded, color: AppTheme.warning, title: 'Call Helpline', subtitle: '+92-311-QUREXA-PK', onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Dialing helpline (mock).')))),
                 ],
               ),
             ),

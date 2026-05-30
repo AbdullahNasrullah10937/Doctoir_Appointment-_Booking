@@ -23,6 +23,9 @@ abstract final class FirebasePaths {
   /// `/users/<uid>/queueSnapshot`
   static String queueSnapshot(String uid) => '${userRoot(uid)}/queueSnapshot';
 
+  /// `/users/<uid>/ai_chat_history`
+  static String aiChatHistory(String uid) => '${userRoot(uid)}/ai_chat_history';
+
   /// `/doctors/<uid>`
   static String doctorRoot(String uid) => 'doctors/$uid';
 

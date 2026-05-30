@@ -5,14 +5,14 @@ import 'routes/app_router.dart';
 import 'state/app_scope.dart';
 import 'state/app_state.dart';
 
-class MediQApp extends StatefulWidget {
-  const MediQApp({super.key});
+class QurexaApp extends StatefulWidget {
+  const QurexaApp({super.key});
 
   @override
-  State<MediQApp> createState() => _MediQAppState();
+  State<QurexaApp> createState() => _QurexaAppState();
 }
 
-class _MediQAppState extends State<MediQApp> {
+class _QurexaAppState extends State<QurexaApp> {
   late final AppState _state;
 
   @override
