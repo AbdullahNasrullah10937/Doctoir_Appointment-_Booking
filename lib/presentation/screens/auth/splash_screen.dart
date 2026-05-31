@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_assets.dart';
@@ -5,7 +6,6 @@ import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/app_entities.dart';
 import '../../routes/app_router.dart';
 import '../../state/app_scope.dart';
-import '../../widgets/common_widgets.dart';
 import '../../../core/security/encryption_service.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -16,46 +16,66 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
+    with TickerProviderStateMixin {
+  late AnimationController _logoController;
+  late AnimationController _progressController;
   late Animation<double> _scaleAnim;
   late Animation<double> _fadeAnim;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+    
+    // Logo entrance animation (smooth easeOutCubic, typical of premium systems)
+    _logoController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
-    )..forward();
+      duration: const Duration(milliseconds: 1000),
+    );
 
     _scaleAnim = Tween<double>(
-      begin: 0.7,
+      begin: 0.90,
       end: 1.0,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.elasticOut));
+    ).animate(CurvedAnimation(
+      parent: _logoController,
+      curve: const Interval(0.0, 1.0, curve: Curves.easeOutCubic),
+    ));
+
     _fadeAnim = Tween<double>(
       begin: 0.0,
       end: 1.0,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeIn));
+    ).animate(CurvedAnimation(
+      parent: _logoController,
+      curve: const Interval(0.0, 0.8, curve: Curves.easeIn),
+    ));
+
+    // Sliding indicator animation (looping)
+    _progressController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    )..repeat();
+
+    _logoController.forward();
 
     WidgetsBinding.instance.addPostFrameCallback((_) => _bootstrap());
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _logoController.dispose();
+    _progressController.dispose();
     super.dispose();
   }
 
   Future<void> _bootstrap() async {
-    // Capture state/navigator before any asynchronous gaps
     final navigator = Navigator.of(context);
     final appState = AppScope.of(context);
 
-    // Moved here to prevent blocking runApp in main.dart
+    // Initialise background services
     await EncryptionService.initialize();
     await appState.initialize();
-    await Future<void>.delayed(const Duration(milliseconds: 1800));
+    
+    // Keep splash screen visible briefly to establish trust/branding
+    await Future<void>.delayed(const Duration(milliseconds: 2000));
 
     if (!mounted) return;
 
@@ -81,104 +101,153 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: <Color>[AppTheme.accentBlue, Color(0xFF1A4BC4)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: <Widget>[
-              const Spacer(flex: 3),
-              // Animated logo
-              AnimatedBuilder(
-                animation: _controller,
-                builder: (_, child) => FadeTransition(
-                  opacity: _fadeAnim,
-                  child: ScaleTransition(scale: _scaleAnim, child: child),
-                ),
-                child: Column(
-                  children: <Widget>[
-                    // Logo circle
-                    Container(
-                      width: 120,
-                      height: 120,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: <BoxShadow>[
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.2),
-                            blurRadius: 30,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
-                      ),
-                      padding: const EdgeInsets.all(AppTheme.space2),
-                      child: ClipOval(
-                        child: Image.asset(
-                          AppAssets.appLogo,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => const Icon(
-                            Icons.local_hospital_rounded,
-                            color: AppTheme.accentBlue,
-                            size: 52,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      'Qurexa',
-                      style: TextStyle(
-                        fontSize: 36,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        letterSpacing: -1.0,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Your Health, On Time',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.white70,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
+      backgroundColor: const Color(0xFF070B14),
+      body: Stack(
+        alignment: Alignment.center,
+        children: <Widget>[
+          // 1. Subtle premium radial glow background
+          Positioned.fill(
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: RadialGradient(
+                  center: Alignment.center,
+                  radius: 1.2,
+                  colors: <Color>[
+                    Color(0xFF0F1C2E), // Primary dark theme base
+                    Color(0xFF070B14), // Pure deep slate black
                   ],
+                  stops: <double>[0.0, 1.0],
                 ),
               ),
-              const Spacer(flex: 3),
-              // Loading indicator
-              Column(
+            ),
+          ),
+          
+          // 2. Main Centered Branding Mark
+          Center(
+            child: AnimatedBuilder(
+              animation: _logoController,
+              builder: (_, child) => FadeTransition(
+                opacity: _fadeAnim,
+                child: ScaleTransition(scale: _scaleAnim, child: child),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  const SizedBox(
-                    width: 32,
-                    height: 32,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      color: Colors.white,
+                  // Neumorphic/Glassmorphic squircle enclosing the logo
+                  Container(
+                    width: 96,
+                    height: 96,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0C1422),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: AppTheme.accentBlue.withValues(alpha: 0.20),
+                        width: 1.5,
+                      ),
+                      boxShadow: <BoxShadow>[
+                        BoxShadow(
+                          color: AppTheme.accentBlue.withValues(alpha: 0.08),
+                          blurRadius: 40,
+                          spreadRadius: 2,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    alignment: Alignment.center,
+                    child: Image.asset(
+                      AppAssets.appLogo,
+                      width: 52,
+                      height: 52,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, _, _) => const Icon(
+                        Icons.local_hospital_rounded,
+                        color: AppTheme.accentBlue,
+                        size: 38,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 24),
+                  // Sleek, spaced corporate typography
                   const Text(
-                    'Loading your health profile...',
-                    style: TextStyle(color: Colors.white60, fontSize: 13),
+                    'QUREXA',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      letterSpacing: 6.0,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'CLINICAL PORTAL',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white.withValues(alpha: 0.35),
+                      letterSpacing: 2.5,
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 40),
-              // Page dots (decorative — fixed at 3)
-              const PageDotIndicator(count: 3, current: 0),
-              const SizedBox(height: 32),
-            ],
+            ),
           ),
-        ),
+
+          // 3. Minimal sliding progress indicator at the bottom (Netflix/Uber system style)
+          Positioned(
+            bottom: 64,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(1.5),
+                  child: Container(
+                    width: 120,
+                    height: 2.5,
+                    color: Colors.white.withValues(alpha: 0.06),
+                    child: Stack(
+                      children: <Widget>[
+                        AnimatedBuilder(
+                          animation: _progressController,
+                          builder: (context, child) {
+                            final progress = _progressController.value;
+                            return Positioned(
+                              left: -120 + (progress * 240),
+                              width: 120,
+                              top: 0,
+                              bottom: 0,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: <Color>[
+                                      AppTheme.accentBlue.withValues(alpha: 0.0),
+                                      AppTheme.accentBlue,
+                                      AppTheme.accentBlue.withValues(alpha: 0.0),
+                                    ],
+                                    stops: const <double>[0.0, 0.5, 1.0],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'INITIALIZING SYSTEM',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white.withValues(alpha: 0.25),
+                    letterSpacing: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

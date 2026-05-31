@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../core/theme/app_theme.dart';
 
@@ -593,11 +594,22 @@ class AssetCircleAvatar extends StatelessWidget {
             height: radius * 2,
             child: imageAsset == null
                 ? _fallback()
-                : Image.asset(
-                    imageAsset!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => _fallback(),
-                  ),
+                : (imageAsset!.startsWith('http://') || imageAsset!.startsWith('https://')
+                    ? CachedNetworkImage(
+                        imageUrl: imageAsset!,
+                        fit: BoxFit.cover,
+                        placeholder: (BuildContext context, String url) => const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        errorWidget: (BuildContext context, String url, dynamic error) => _fallback(),
+                      )
+                    : Image.asset(
+                        imageAsset!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => _fallback(),
+                      )),
           ),
         ),
       ),

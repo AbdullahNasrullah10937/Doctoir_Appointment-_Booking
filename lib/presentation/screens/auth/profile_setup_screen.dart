@@ -236,8 +236,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
                                   initialValue: _gender,
+                                  isExpanded: true,
                                   decoration: const InputDecoration(
-                                    prefixIcon: Icon(Icons.wc_rounded),
                                     contentPadding: EdgeInsets.symmetric(
                                       horizontal: 12,
                                       vertical: 14,

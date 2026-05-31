@@ -21,21 +21,28 @@ Future<void> main() async {
     debugPrint('Could not load .env file: $e');
   }
 
-  // Guard against duplicate initialization
-  if (Firebase.apps.isEmpty) {
-    try {
+  // Guard against duplicate initialization.
+  // Note: on some Android devices the google-services Gradle plugin initialises
+  // Firebase natively before Dart starts, so Firebase.apps.isEmpty can still be
+  // true in Dart while the native layer already has a [DEFAULT] app. We catch
+  // the duplicate-app error and treat it as a success.
+  try {
+    if (Firebase.apps.isEmpty) {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
-      if (!kIsWeb) {
-        // Enable disk persistence so the app works offline.
-        FirebaseDatabase.instance.setPersistenceEnabled(true);
-        FirebaseDatabase.instance.setPersistenceCacheSizeBytes(
-          10 * 1024 * 1024,
-        );
-      }
-    } catch (e) {
-      debugPrint('Firebase init error: $e');
+    }
+    if (!kIsWeb) {
+      FirebaseDatabase.instance.setPersistenceEnabled(true);
+      FirebaseDatabase.instance.setPersistenceCacheSizeBytes(10 * 1024 * 1024);
+    }
+  } catch (e) {
+    final msg = e.toString();
+    if (msg.contains('duplicate-app')) {
+      // Firebase was already initialised by the native layer — safe to ignore.
+      debugPrint('[Firebase] Already initialised by native layer — continuing.');
+    } else {
+      debugPrint('[Firebase] Init error: $e');
     }
   }
 

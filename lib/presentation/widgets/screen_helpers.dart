@@ -17,24 +17,7 @@ String buildInitials(String value, {String fallback = 'PT'}) {
 
 // ─── Widget helpers ───────────────────────────────────────────────────────────
 
-/// Coloured pill badge used in appointment lists.
-Widget buildStatusBadge(String label, Color color) {
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-    decoration: BoxDecoration(
-      color: color.withValues(alpha: 0.16),
-      borderRadius: BorderRadius.circular(20),
-    ),
-    child: Text(
-      label,
-      style: TextStyle(
-        color: color,
-        fontWeight: FontWeight.w700,
-        fontSize: 12,
-      ),
-    ),
-  );
-}
+
 
 /// Settings list-tile row used inside the patient settings tab.
 Widget buildSettingsTile(

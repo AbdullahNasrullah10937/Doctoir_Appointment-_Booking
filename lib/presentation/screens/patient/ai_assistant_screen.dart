@@ -402,6 +402,21 @@ class _ChatBubble extends StatelessWidget {
   const _ChatBubble({required this.message});
   final ChatMessage message;
 
+  String _cleanText(String text) {
+    if (message.isUser) return text;
+    var cleaned = text;
+    // Replace markdown bold/italic asterisks
+    cleaned = cleaned.replaceAll('**', '');
+    cleaned = cleaned.replaceAll('* ', '• ');
+    cleaned = cleaned.replaceAll(RegExp(r'(?<=^|\n)\*\s'), '• ');
+    cleaned = cleaned.replaceAll(RegExp(r'(?<=^|\n)-\s'), '• ');
+    cleaned = cleaned.replaceAll('*', '');
+    // Remove markdown heading hashes
+    cleaned = cleaned.replaceAll(RegExp(r'#+\s'), '');
+    cleaned = cleaned.replaceAll(RegExp(r'\n{3,}'), '\n\n');
+    return cleaned.trim();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Align(
@@ -421,7 +436,7 @@ class _ChatBubble extends StatelessWidget {
           border: message.isUser ? null : Border.all(color: AppTheme.border),
         ),
         child: Text(
-          message.text,
+          _cleanText(message.text),
           style: TextStyle(
             color: message.isUser ? Colors.white : AppTheme.textPrimary,
             fontSize: 14,

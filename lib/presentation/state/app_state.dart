@@ -9,7 +9,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../core/firebase/firebase_bootstrap.dart';
 import '../../core/security/emergency_parser.dart';
-import '../../core/services/groq_service.dart';
+import '../../core/ai/services/ai_service.dart';
 import '../../data/firebase/patient_cloud_sync.dart';
 import '../../data/repositories/mock_app_repository.dart';
 import '../../domain/entities/app_entities.dart';
@@ -50,7 +50,7 @@ class AppState extends ChangeNotifier {
   StreamSubscription<List<PatientCase>>? _doctorQueueSub;
   StreamSubscription<DoctorSchedule?>? _doctorScheduleSub;
 
-  final GroqService _groqService = GroqService();
+  final AiService _aiService = AiService();
 
   List<ChatMessage> aiChatHistory = <ChatMessage>[
     const ChatMessage(
@@ -890,7 +890,7 @@ class AppState extends ChangeNotifier {
     ];
 
     // 3. Stream response from Groq (token-by-token SSE)
-    final stream = _groqService.streamChatResponse(messages);
+    final stream = _aiService.streamChat(messages);
     final fullResponseBuffer = StringBuffer();
 
     await for (final delta in stream) {
@@ -950,15 +950,10 @@ class AppState extends ChangeNotifier {
     }
 
     try {
-      final rawResponse = await _groqService.runSymptomTriage(symptomText);
+      final rawResponse = await _aiService.runSymptomTriage(symptomText);
       
-      // 2. Resilient JSON extraction via regex matching (isolates JSON from any wrapping markdown text)
-      final jsonMatch = RegExp(r'\{[\s\S]*\}').firstMatch(rawResponse);
-      if (jsonMatch == null) {
-        throw const FormatException("Invalid or malformed response format from triage engine.");
-      }
-
-      final parsed = jsonDecode(jsonMatch.group(0)!) as Map<String, dynamic>;
+      // 2. Resilient JSON extraction via regex matching offloaded to background isolate
+      final parsed = await compute(parseTriageResponseIsolate, rawResponse);
       
       triageSummary = parsed['summary'] as String? ?? 'Symptoms cataloged successfully.';
       triageUrgency = (parsed['urgency'] as String? ?? 'NON_URGENT').toUpperCase();
@@ -1077,4 +1072,14 @@ class AppState extends ChangeNotifier {
       unawaited(_notificationRepo.upsert(item));
     }
   }
+}
+
+/// Top-level parser function running in a background isolate via `compute()`
+/// to extract and decode JSON symptom triage responses safely.
+Map<String, dynamic> parseTriageResponseIsolate(String rawResponse) {
+  final jsonMatch = RegExp(r'\{[\s\S]*\}').firstMatch(rawResponse);
+  if (jsonMatch == null) {
+    throw const FormatException("Invalid or malformed response format from triage engine.");
+  }
+  return jsonDecode(jsonMatch.group(0)!) as Map<String, dynamic>;
 }

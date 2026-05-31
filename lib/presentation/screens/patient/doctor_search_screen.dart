@@ -35,7 +35,7 @@ class _DoctorSearchScreenState extends State<DoctorSearchScreen> {
   @override
   Widget build(BuildContext context) {
     final appState = AppScope.of(context);
-    final specialties = <String>{'All', ...appState.doctors.map((d) => d.specialty)};
+    final specialties = <String>{'All', ...appState.doctors.map((d) => d.specialty)}.toList();
     final doctors = appState.filterDoctors(
       query: _queryController.text,
       specialty: _specialty,
@@ -91,9 +91,11 @@ class _DoctorSearchScreenState extends State<DoctorSearchScreen> {
                   // Specialty chips
                   SizedBox(
                     height: 36,
-                    child: ListView(
+                    child: ListView.builder(
                       scrollDirection: Axis.horizontal,
-                      children: specialties.map((s) {
+                      itemCount: specialties.length,
+                      itemBuilder: (context, index) {
+                        final s = specialties[index];
                         final selected = _specialty == s;
                         return Padding(
                           padding: const EdgeInsets.only(right: 8),
@@ -120,7 +122,7 @@ class _DoctorSearchScreenState extends State<DoctorSearchScreen> {
                             ),
                           ),
                         );
-                      }).toList(),
+                      },
                     ),
                   ),
                   const SizedBox(height: 8),
