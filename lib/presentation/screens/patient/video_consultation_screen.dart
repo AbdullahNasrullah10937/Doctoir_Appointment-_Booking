@@ -77,7 +77,7 @@ class VideoConsultationScreen extends StatelessWidget {
                     if (doctor != null)
                       Text(doctor!.specialty, style: const TextStyle(color: Colors.white60, fontSize: 13)),
                     const SizedBox(height: 12),
-                    _PulseDot(),
+                    const RepaintBoundary(child: _PulseDot()),
                     const SizedBox(height: 6),
                     const Text('Connected', style: TextStyle(color: AppTheme.success, fontWeight: FontWeight.w700)),
                   ],
@@ -106,6 +106,8 @@ class VideoConsultationScreen extends StatelessWidget {
 }
 
 class _PulseDot extends StatefulWidget {
+  const _PulseDot();
+
   @override
   State<_PulseDot> createState() => _PulseDotState();
 }

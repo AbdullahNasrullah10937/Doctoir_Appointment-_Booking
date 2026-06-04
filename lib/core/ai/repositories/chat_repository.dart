@@ -1,12 +1,12 @@
 import '../models/chat_message_model.dart';
 import '../services/ai_service.dart';
 
-/// Design Decision: The repository pattern wraps [AiService] with a typed API
-/// surface — callers use [ChatMessageModel] instead of raw Maps, satisfying the
-/// academic requirement while keeping the underlying service loosely coupled.
-///
-/// [ChatRepository] is the entry point for any feature that wants to send a
-/// chat message and receive the complete parsed response string.
+// Design Decision: The repository pattern wraps [AiService] with a typed API
+// surface — callers use [ChatMessageModel] instead of raw Maps, satisfying the
+// academic requirement while keeping the underlying service loosely coupled.
+//
+// [ChatRepository] is the entry point for any feature that wants to send a
+// chat message and receive the complete parsed response string.
 class ChatRepository {
   ChatRepository({AiService? service})
       : _service = service ?? AiService();
@@ -16,7 +16,7 @@ class ChatRepository {
   /// Sends [messages] to the AI provider and returns the complete response text.
   ///
   /// Internally accumulates the streaming deltas from [AiService.streamChat]
-  /// so callers that need a single Future<String> can use this method.
+  /// so callers that need a single `Future<String>` can use this method.
   /// For progressive streaming UI, use [AiService.streamChat] directly.
   ///
   /// Throws an [AiException] subclass on unrecoverable errors.

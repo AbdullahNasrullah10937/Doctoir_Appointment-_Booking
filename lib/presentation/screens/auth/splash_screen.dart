@@ -6,7 +6,6 @@ import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/app_entities.dart';
 import '../../routes/app_router.dart';
 import '../../state/app_scope.dart';
-import '../../../core/security/encryption_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -70,12 +69,12 @@ class _SplashScreenState extends State<SplashScreen>
     final navigator = Navigator.of(context);
     final appState = AppScope.of(context);
 
-    // Initialise background services
-    await EncryptionService.initialize();
-    await appState.initialize();
-    
-    // Keep splash screen visible briefly to establish trust/branding
-    await Future<void>.delayed(const Duration(milliseconds: 2000));
+    // Run app state initialization concurrently with the minimum splash screen delay
+    // to establish premium branding/trust without adding any extra load times.
+    await Future.wait([
+      appState.initialize(),
+      Future<void>.delayed(const Duration(milliseconds: 2000)),
+    ]);
 
     if (!mounted) return;
 

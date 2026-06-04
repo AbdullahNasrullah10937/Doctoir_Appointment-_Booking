@@ -598,6 +598,8 @@ class AssetCircleAvatar extends StatelessWidget {
                     ? CachedNetworkImage(
                         imageUrl: imageAsset!,
                         fit: BoxFit.cover,
+                        memCacheWidth: (radius * 3).round(),
+                        memCacheHeight: (radius * 3).round(),
                         placeholder: (BuildContext context, String url) => const SizedBox(
                           width: 20,
                           height: 20,

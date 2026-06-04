@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../app.dart';
 import '../../routes/app_router.dart';
 import '../../state/app_scope.dart';
 import '../../widgets/common_widgets.dart';
@@ -21,6 +22,10 @@ class _AiSymptomCheckerScreenState extends State<AiSymptomCheckerScreen> {
     'Headache', 'Fever', 'Cough', 'Fatigue', 'Chest Pain',
     'Nausea', 'Back Pain', 'Rash', 'Dizziness',
   ];
+
+  // Rewarded ad state — unlocks Extended AI Analysis section
+  bool _extendedAnalysisUnlocked = false;
+  bool _isShowingRewardedAd = false;
 
   @override
   void dispose() {
@@ -386,6 +391,139 @@ class _AiSymptomCheckerScreenState extends State<AiSymptomCheckerScreen> {
                         ],
                       ),
                     ),
+                    const SizedBox(height: 10),
+
+                    // ── Rewarded Ad: Extended AI Analysis ────────────────────
+                    if (!_extendedAnalysisUnlocked)
+                      MediQCard(
+                        child: Column(
+                          children: <Widget>[
+                            Row(
+                              children: <Widget>[
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.accentBlue.withValues(alpha: 0.12),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.auto_awesome_rounded, color: AppTheme.accentBlue, size: 22),
+                                ),
+                                const SizedBox(width: 12),
+                                const Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: <Widget>[
+                                      Text(
+                                        'Unlock Extended Analysis',
+                                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                                      ),
+                                      Text(
+                                        'Get deeper AI health insights, prevention tips, and a full health risk report.',
+                                        style: TextStyle(color: AppTheme.textMuted, fontSize: 12, height: 1.4),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            _isShowingRewardedAd
+                                ? const Center(child: CircularProgressIndicator(strokeWidth: 3))
+                                : SizedBox(
+                                    width: double.infinity,
+                                    child: ElevatedButton.icon(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppTheme.accentBlue,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(vertical: 14),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                                        ),
+                                      ),
+                                      icon: const Icon(Icons.play_circle_outline_rounded, size: 20),
+                                      label: const Text(
+                                        'Watch a short ad to unlock',
+                                        style: TextStyle(fontWeight: FontWeight.w700),
+                                      ),
+                                      onPressed: () async {
+                                        setState(() => _isShowingRewardedAd = true);
+                                        await AdServiceProvider.of(context).showRewarded(
+                                          onEarnReward: () {
+                                            if (mounted) {
+                                              setState(() => _extendedAnalysisUnlocked = true);
+                                            }
+                                          },
+                                          onDone: () {
+                                            if (mounted) {
+                                              setState(() => _isShowingRewardedAd = false);
+                                            }
+                                          },
+                                        );
+                                      },
+                                    ),
+                                  ),
+                          ],
+                        ),
+                      )
+                    else
+                      // ── Extended Analysis (unlocked after reward) ─────────
+                      MediQCard(
+                        borderColor: AppTheme.accentBlue,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Row(
+                              children: <Widget>[
+                                const Icon(Icons.auto_awesome_rounded, color: AppTheme.accentBlue, size: 18),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'Extended AI Health Insights',
+                                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AppTheme.accentBlue),
+                                ),
+                              ],
+                            ),
+                            const Divider(height: 20),
+                            const Text(
+                              'Lifestyle & Prevention Tips',
+                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                            ),
+                            const SizedBox(height: 6),
+                            const Text(
+                              'Based on your symptoms, maintaining hydration, adequate rest, and monitoring temperature changes can help manage your condition. Avoid strenuous activity and seek emergency care if symptoms worsen significantly.',
+                              style: TextStyle(fontSize: 13, height: 1.5, color: AppTheme.textSecondary),
+                            ),
+                            const SizedBox(height: 14),
+                            const Text(
+                              'Risk Factors to Monitor',
+                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                            ),
+                            const SizedBox(height: 6),
+                            const Text(
+                              'Patients with pre-existing respiratory or immune conditions should seek evaluation sooner. Track symptom progression daily and note any new developments before your doctor visit.',
+                              style: TextStyle(fontSize: 13, height: 1.5, color: AppTheme.textSecondary),
+                            ),
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primarySoft,
+                                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: <Widget>[
+                                  Icon(Icons.verified_rounded, color: AppTheme.accentBlue, size: 14),
+                                  SizedBox(width: 6),
+                                  Text(
+                                    'Extended analysis unlocked',
+                                    style: TextStyle(fontSize: 11, color: AppTheme.accentBlue, fontWeight: FontWeight.w700),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     const SizedBox(height: 10),
                   ],
 

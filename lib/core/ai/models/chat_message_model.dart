@@ -1,6 +1,6 @@
-/// Design Decision: A typed model for the API wire format prevents the
-/// stringly-typed Map<String,String> anti-pattern and gives compile-time
-/// safety when constructing OpenAI-compatible message payloads.
+// Design Decision: A typed model for the API wire format prevents the
+// stringly-typed `Map<String,String>` anti-pattern and gives compile-time
+// safety when constructing OpenAI-compatible message payloads.
 
 /// Represents a single chat message in OpenAI-compatible format.
 /// Used as the wire format sent to both OpenAI and Groq providers.
@@ -42,7 +42,7 @@ class ChatMessageModel {
   factory ChatMessageModel.system(String content) =>
       ChatMessageModel(role: 'system', content: content);
 
-  /// Converts a legacy Map<String,String> (used in existing app_state code)
+  /// Converts a legacy `Map<String, String>` (used in existing app_state code)
   /// to a typed [ChatMessageModel] for repository-layer consumers.
   factory ChatMessageModel.fromMap(Map<String, String> map) =>
       ChatMessageModel(role: map['role'] ?? 'user', content: map['content'] ?? '');

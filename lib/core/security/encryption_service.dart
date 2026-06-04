@@ -3,6 +3,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:encrypt/encrypt.dart';
+import 'package:flutter/foundation.dart' as foundation;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 /// Client-side AES-256-CBC encryption service.
@@ -49,6 +50,10 @@ class EncryptionService {
   ///
   /// Returns a single opaque string: `"<ivBase64>:<cipherBase64>"`.
   /// The IV is never reused — one random IV is generated per call.
+  /// Encrypts [plainText] with AES-256-CBC and a fresh random IV.
+  ///
+  /// Returns a single opaque string: `"<ivBase64>:<cipherBase64>"`.
+  /// The IV is never reused — one random IV is generated per call.
   static String encrypt(String plainText) {
     _assertReady();
     final iv = IV.fromSecureRandom(16);
@@ -70,6 +75,42 @@ class EncryptionService {
     }
     final iv = IV(base64Decode(parts[0]));
     final encrypter = Encrypter(AES(_key, mode: AESMode.cbc));
+    return encrypter.decrypt64(parts[1], iv: iv);
+  }
+
+  /// Asynchronously encrypts [plainText] in a background isolate.
+  static Future<String> encryptAsync(String plainText) async {
+    _assertReady();
+    final keyBytes = _key.bytes;
+    return foundation.compute(_encryptIsolate, <String, dynamic>{'text': plainText, 'key': keyBytes});
+  }
+
+  /// Asynchronously decrypts [encryptedText] in a background isolate.
+  static Future<String> decryptAsync(String encryptedText) async {
+    _assertReady();
+    final keyBytes = _key.bytes;
+    return foundation.compute(_decryptIsolate, <String, dynamic>{'text': encryptedText, 'key': keyBytes});
+  }
+
+  static String _encryptIsolate(Map<String, dynamic> params) {
+    final text = params['text'] as String;
+    final keyBytes = params['key'] as Uint8List;
+    final workerKey = Key(keyBytes);
+    final iv = IV.fromSecureRandom(16);
+    final encrypter = Encrypter(AES(workerKey, mode: AESMode.cbc));
+    return '${base64Encode(iv.bytes)}:${encrypter.encrypt(text, iv: iv).base64}';
+  }
+
+  static String _decryptIsolate(Map<String, dynamic> params) {
+    final text = params['text'] as String;
+    final keyBytes = params['key'] as Uint8List;
+    final workerKey = Key(keyBytes);
+    final parts = text.split(':');
+    if (parts.length != 2) {
+      throw const FormatException('EncryptionService: invalid ciphertext.');
+    }
+    final iv = IV(base64Decode(parts[0]));
+    final encrypter = Encrypter(AES(workerKey, mode: AESMode.cbc));
     return encrypter.decrypt64(parts[1], iv: iv);
   }
 

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 
 import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -375,8 +376,8 @@ class PatientRecordCloudRepository {
       return const Stream<List<HealthRecord>>.empty();
     }
 
-    return recordsRef(liveUser).onValue.map((event) {
-      return decodeRecordCollection(event.snapshot.value);
+    return recordsRef(liveUser).onValue.asyncMap((event) async {
+      return compute(decodeRecordCollection, event.snapshot.value);
     });
   }
 

@@ -1,6 +1,6 @@
-/// Design Decision: Parsing the full Groq/OpenAI response into a typed model
-/// isolates the fragile JSON traversal in one place — all callers receive a
-/// clean [GroqResponse] instead of indexing raw dynamic maps.
+// Design Decision: Parsing the full Groq/OpenAI response into a typed model
+// isolates the fragile JSON traversal in one place — all callers receive a
+// clean [GroqResponse] instead of indexing raw dynamic maps.
 
 /// Represents the full chat completion response from Groq / OpenAI APIs.
 /// Both APIs share the same OpenAI-compatible response shape.

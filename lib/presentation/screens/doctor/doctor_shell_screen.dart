@@ -7,8 +7,21 @@ import '../../routes/app_router.dart';
 import '../../state/app_scope.dart';
 import '../../widgets/common_widgets.dart';
 
-class DoctorShellScreen extends StatelessWidget {
+class DoctorShellScreen extends StatefulWidget {
   const DoctorShellScreen({super.key});
+
+  @override
+  State<DoctorShellScreen> createState() => _DoctorShellScreenState();
+}
+
+class _DoctorShellScreenState extends State<DoctorShellScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AppScope.of(context).loadAppData();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -17,6 +17,14 @@ class PatientShellScreen extends StatefulWidget {
 
 class _PatientShellScreenState extends State<PatientShellScreen> {
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AppScope.of(context).loadAppData();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final appState = AppScope.of(context);
 

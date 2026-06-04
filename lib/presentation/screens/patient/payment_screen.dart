@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/app_entities.dart';
+import '../../app.dart';
 import '../../routes/app_router.dart';
 import '../../state/app_scope.dart';
 import '../../widgets/common_widgets.dart';
@@ -29,10 +30,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
     final appointment = appState.bookAppointment(draft: widget.draft);
 
     setState(() => _paying = false);
+
+    // Navigate to queue tracker first — ad fires AFTER user reaches next screen
+    // This ensures payment flow is never interrupted by an ad.
+    if (!mounted) return;
+    final adService = AdServiceProvider.of(context);
     Navigator.of(context).pushReplacementNamed(
       AppRouter.queueTracker,
       arguments: appointment,
     );
+
+    // Show interstitial after the navigation completes (natural break point)
+    await adService.showInterstitial();
   }
 
   @override

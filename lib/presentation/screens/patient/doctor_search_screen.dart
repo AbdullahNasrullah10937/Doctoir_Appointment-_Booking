@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../routes/app_router.dart';
 import '../../state/app_scope.dart';
+import '../../widgets/banner_ad_widget.dart';
 import '../../widgets/common_widgets.dart';
 import '../../widgets/screen_helpers.dart';
 
@@ -16,6 +17,7 @@ class DoctorSearchScreen extends StatefulWidget {
 
 class _DoctorSearchScreenState extends State<DoctorSearchScreen> {
   final TextEditingController _queryController = TextEditingController();
+  final ValueNotifier<String> _queryNotifier = ValueNotifier<String>('');
   String _specialty = 'All';
   String _gender = 'All';
   bool _todayOnly = false;
@@ -24,11 +26,15 @@ class _DoctorSearchScreenState extends State<DoctorSearchScreen> {
   void initState() {
     super.initState();
     _specialty = widget.initialSpecialty ?? 'All';
+    _queryController.addListener(() {
+      _queryNotifier.value = _queryController.text;
+    });
   }
 
   @override
   void dispose() {
     _queryController.dispose();
+    _queryNotifier.dispose();
     super.dispose();
   }
 
@@ -36,12 +42,6 @@ class _DoctorSearchScreenState extends State<DoctorSearchScreen> {
   Widget build(BuildContext context) {
     final appState = AppScope.of(context);
     final specialties = <String>{'All', ...appState.doctors.map((d) => d.specialty)}.toList();
-    final doctors = appState.filterDoctors(
-      query: _queryController.text,
-      specialty: _specialty,
-      gender: _gender,
-      availableTodayOnly: _todayOnly,
-    );
 
     return Scaffold(
       backgroundColor: AppTheme.bg,
@@ -81,7 +81,6 @@ class _DoctorSearchScreenState extends State<DoctorSearchScreen> {
                 children: <Widget>[
                   TextField(
                     controller: _queryController,
-                    onChanged: (_) => setState(() {}),
                     decoration: const InputDecoration(
                       prefixIcon: Icon(Icons.search_rounded),
                       hintText: 'Search doctor by name or specialty',
@@ -173,75 +172,92 @@ class _DoctorSearchScreenState extends State<DoctorSearchScreen> {
             ),
             // Results
             Expanded(
-              child: doctors.isEmpty
-                  ? const EmptyStateView(
+              child: ValueListenableBuilder<String>(
+                valueListenable: _queryNotifier,
+                builder: (context, query, child) {
+                  final filteredDoctors = appState.filterDoctors(
+                    query: query,
+                    specialty: _specialty,
+                    gender: _gender,
+                    availableTodayOnly: _todayOnly,
+                  );
+
+                  if (filteredDoctors.isEmpty) {
+                    return const EmptyStateView(
                       title: 'No matching doctor found',
                       message: 'Try changing your filters or search terms.',
                       icon: Icons.person_search_rounded,
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(AppTheme.space4),
-                      itemCount: doctors.length,
-                      itemBuilder: (_, index) {
-                        final doctor = doctors[index];
-                        return MediQCard(
-                          onTap: () => Navigator.of(context)
-                              .pushNamed(AppRouter.doctorProfile, arguments: doctor),
-                          child: Row(
-                            children: <Widget>[
-                              AssetCircleAvatar(
-                                imageAsset: doctor.imageAsset,
-                                initials: buildInitials(doctor.name, fallback: 'DR'),
-                                radius: 28,
+                    );
+                  }
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.all(AppTheme.space4),
+                    itemCount: filteredDoctors.length,
+                    itemBuilder: (_, index) {
+                      final doctor = filteredDoctors[index];
+                      return MediQCard(
+                        key: ValueKey<String>(doctor.id),
+                        onTap: () => Navigator.of(context)
+                            .pushNamed(AppRouter.doctorProfile, arguments: doctor),
+                        child: Row(
+                          children: <Widget>[
+                            AssetCircleAvatar(
+                              imageAsset: doctor.imageAsset,
+                              initials: buildInitials(doctor.name, fallback: 'DR'),
+                              radius: 28,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Text(
+                                    doctor.name,
+                                    style: const TextStyle(fontWeight: FontWeight.w700),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    doctor.specialty,
+                                    style: const TextStyle(color: AppTheme.textMuted, fontSize: 12),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: <Widget>[
+                                      const Icon(Icons.star_rounded, color: AppTheme.warning, size: 14),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        doctor.rating.toStringAsFixed(1),
+                                        style: const TextStyle(color: AppTheme.warning, fontWeight: FontWeight.w700, fontSize: 12),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Text(
+                                        'Rs ${doctor.consultationFee}',
+                                        style: const TextStyle(color: AppTheme.textMuted, fontSize: 12),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Next: ${doctor.nextAvailableSlot}',
+                                    style: const TextStyle(color: AppTheme.accentBlue, fontSize: 11, fontWeight: FontWeight.w600),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: <Widget>[
-                                    Text(
-                                      doctor.name,
-                                      style: const TextStyle(fontWeight: FontWeight.w700),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      doctor.specialty,
-                                      style: const TextStyle(color: AppTheme.textMuted, fontSize: 12),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: <Widget>[
-                                        const Icon(Icons.star_rounded, color: AppTheme.warning, size: 14),
-                                        const SizedBox(width: 3),
-                                        Text(
-                                          doctor.rating.toStringAsFixed(1),
-                                          style: const TextStyle(color: AppTheme.warning, fontWeight: FontWeight.w700, fontSize: 12),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Text(
-                                          'Rs ${doctor.consultationFee}',
-                                          style: const TextStyle(color: AppTheme.textMuted, fontSize: 12),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      'Next: ${doctor.nextAvailableSlot}',
-                                      style: const TextStyle(color: AppTheme.accentBlue, fontSize: 11, fontWeight: FontWeight.w600),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              StatusBadge(
-                                label: doctor.isAvailableToday ? 'Available' : 'Busy',
-                                color: doctor.isAvailableToday ? AppTheme.success : AppTheme.danger,
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
+                            ),
+                            StatusBadge(
+                              label: doctor.isAvailableToday ? 'Available' : 'Busy',
+                              color: doctor.isAvailableToday ? AppTheme.success : AppTheme.danger,
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
             ),
+            // ── Non-intrusive adaptive banner footer ──────────────────────────
+            const BannerAdWidget(),
           ],
         ),
       ),

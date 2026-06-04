@@ -16,32 +16,31 @@ abstract class AiException implements Exception {
 
 /// 401 — API key missing, invalid, or revoked.
 class AiAuthException extends AiException {
-  const AiAuthException([String message = 'Invalid or missing API key.'])
-      : super(message, statusCode: 401);
+  const AiAuthException([super.message = 'Invalid or missing API key.'])
+      : super(statusCode: 401);
 }
 
 /// 408 / connect timeout / receive timeout.
 class AiTimeoutException extends AiException {
-  const AiTimeoutException([String message = 'Request timed out.'])
-      : super(message, statusCode: 408);
+  const AiTimeoutException([super.message = 'Request timed out.'])
+      : super(statusCode: 408);
 }
 
 /// 429 — Rate limit exceeded.
 class AiRateLimitException extends AiException {
-  const AiRateLimitException([String message = 'Rate limit exceeded. Please wait before retrying.'])
-      : super(message, statusCode: 429);
+  const AiRateLimitException([super.message = 'Rate limit exceeded. Please wait before retrying.'])
+      : super(statusCode: 429);
 }
 
 /// 5xx — Upstream server error.
 class AiServerException extends AiException {
-  const AiServerException([String message = 'Server error. Please try again shortly.', int statusCode = 500])
-      : super(message, statusCode: statusCode);
+  const AiServerException([super.message = 'Server error. Please try again shortly.', int statusCode = 500])
+      : super(statusCode: statusCode);
 }
 
 /// Generic / network-level failure.
 class AiNetworkException extends AiException {
-  const AiNetworkException([String message = 'Network error. Check your connection.'])
-      : super(message);
+  const AiNetworkException([super.message = 'Network error. Check your connection.']);
 }
 
 // ─── Retry Interceptor ─────────────────────────────────────────────────────────

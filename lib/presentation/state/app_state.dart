@@ -10,6 +10,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import '../../core/firebase/firebase_bootstrap.dart';
 import '../../core/security/emergency_parser.dart';
 import '../../core/ai/services/ai_service.dart';
+import '../../core/notifications/notification_service.dart';
 import '../../data/firebase/patient_cloud_sync.dart';
 import '../../data/repositories/mock_app_repository.dart';
 import '../../domain/entities/app_entities.dart';
@@ -79,6 +80,12 @@ class AppState extends ChangeNotifier {
   bool seenOnboarding = false;
   bool isLoggedIn = false;
   bool profileCompleted = false;
+
+  bool _appDataLoaded = false;
+  bool _loadingAppData = false;
+
+  bool get appDataLoaded => _appDataLoaded;
+  bool get loadingAppData => _loadingAppData;
 
   UserRole role = UserRole.patient;
   UserProfile? profile;
@@ -158,20 +165,48 @@ class AppState extends ChangeNotifier {
     isBootstrapping = true;
     notifyListeners();
 
-    doctors = await _repository.getDoctors();
-    appointments = await _repository.getAppointments();
-    records = await _repository.getHealthRecords();
-    reminders = await _repository.getMedicationReminders();
-    notifications = await _repository.getNotifications();
-    doctorQueue = await _repository.getDoctorQueue();
-    doctorSchedule = await _repository.getDoctorSchedule();
-    queueSnapshot = await _repository.getQueueSnapshot();
-
+    // Critical startup path: only restore user session
     await _restoreFirebaseSession();
 
     initialized = true;
     isBootstrapping = false;
     notifyListeners();
+  }
+
+  Future<void> loadAppData() async {
+    if (_appDataLoaded || _loadingAppData) return;
+
+    _loadingAppData = true;
+    notifyListeners();
+
+    try {
+      final results = await Future.wait([
+        _repository.getDoctors(),
+        _repository.getAppointments(),
+        _repository.getHealthRecords(),
+        _repository.getMedicationReminders(),
+        _repository.getNotifications(),
+        _repository.getDoctorQueue(),
+        _repository.getDoctorSchedule(),
+        _repository.getQueueSnapshot(),
+      ]);
+
+      doctors = results[0] as List<Doctor>;
+      appointments = results[1] as List<Appointment>;
+      records = results[2] as List<HealthRecord>;
+      reminders = results[3] as List<MedicationReminder>;
+      notifications = results[4] as List<AppNotification>;
+      doctorQueue = results[5] as List<PatientCase>;
+      doctorSchedule = results[6] as DoctorSchedule;
+      queueSnapshot = results[7] as QueueSnapshot?;
+
+      _appDataLoaded = true;
+    } catch (e) {
+      debugPrint('[AppState] App data loading failed (non-fatal): $e');
+    } finally {
+      _loadingAppData = false;
+      notifyListeners();
+    }
   }
 
   Future<void> login({
@@ -461,7 +496,21 @@ class AppState extends ChangeNotifier {
 
     _notificationsSub = _notificationRepo
         .listenNotifications(firebaseUid: uid)
+        .skip(1) // Skip the initial snapshot — only react to live updates after login
         .listen((items) {
+          // Trigger local popup notifications for newly synced unread items
+          final oldIds = notifications.map((n) => n.id).toSet();
+          for (final item in items) {
+            if (item.isUnread && !oldIds.contains(item.id)) {
+              unawaited(
+                NotificationService.instance.showNotification(
+                  id: item.id.hashCode,
+                  title: item.title,
+                  body: item.message,
+                ),
+              );
+            }
+          }
           notifications = items;
           notifyListeners();
         });
@@ -1071,6 +1120,13 @@ class AppState extends ChangeNotifier {
     if (FirebaseBootstrap.enabled) {
       unawaited(_notificationRepo.upsert(item));
     }
+    unawaited(
+      NotificationService.instance.showNotification(
+        id: item.id.hashCode,
+        title: item.title,
+        body: item.message,
+      ),
+    );
   }
 }
 

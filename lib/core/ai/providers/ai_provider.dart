@@ -1,6 +1,6 @@
-/// Design Decision: An abstract interface decouples all callers from provider
-/// implementations — adding Gemini or Claude later requires only a new class
-/// that implements this contract, with zero changes to AiService or AppState.
+// Design Decision: An abstract interface decouples all callers from provider
+// implementations — adding Gemini or Claude later requires only a new class
+// that implements this contract, with zero changes to AiService or AppState.
 
 /// Contract all AI providers must implement.
 ///
