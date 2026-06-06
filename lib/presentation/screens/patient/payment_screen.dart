@@ -27,21 +27,36 @@ class _PaymentScreenState extends State<PaymentScreen> {
     if (!mounted) return;
 
     final appState = AppScope.of(context);
-    final appointment = appState.bookAppointment(draft: widget.draft);
+    try {
+      final appointment = await appState.bookAppointment(draft: widget.draft);
 
-    setState(() => _paying = false);
+      setState(() => _paying = false);
 
-    // Navigate to queue tracker first — ad fires AFTER user reaches next screen
-    // This ensures payment flow is never interrupted by an ad.
-    if (!mounted) return;
-    final adService = AdServiceProvider.of(context);
-    Navigator.of(context).pushReplacementNamed(
-      AppRouter.queueTracker,
-      arguments: appointment,
-    );
+      // Navigate to queue tracker first — ad fires AFTER user reaches next screen
+      // This ensures payment flow is never interrupted by an ad.
+      if (!mounted) return;
+      final adService = AdServiceProvider.of(context);
+      Navigator.of(context).pushReplacementNamed(
+        AppRouter.queueTracker,
+        arguments: appointment,
+      );
 
-    // Show interstitial after the navigation completes (natural break point)
-    await adService.showInterstitial();
+      // Show interstitial after the navigation completes (natural break point)
+      await adService.showInterstitial();
+    } catch (e) {
+      setState(() => _paying = false);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.toString().contains('Permission') || e.toString().contains('permission')
+                ? 'This slot is no longer available. Please select another slot.'
+                : 'Failed to book appointment: ${e.toString()}',
+          ),
+          backgroundColor: AppTheme.danger,
+        ),
+      );
+    }
   }
 
   @override

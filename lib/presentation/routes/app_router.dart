@@ -32,6 +32,14 @@ class AppRouter {
   static const String doctorPatientDetails = '/doctor/patient-details';
   static const String doctorWritePrescription = '/doctor/write-prescription';
 
+  // Doctor verification
+  static const String doctorSignup = '/auth/doctor-signup';
+  static const String doctorPending = '/auth/doctor-pending';
+  static const String doctorRejected = '/auth/doctor-rejected';
+
+  // Admin
+  static const String adminShell = '/admin/shell';
+
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
       case splash:
@@ -142,6 +150,22 @@ class AppRouter {
           builder: (_) => DoctorWritePrescriptionScreen(
             patientCase: settings.arguments! as PatientCase,
           ),
+        );
+      case doctorSignup:
+        return MaterialPageRoute<void>(
+          builder: (_) => const DoctorSignupScreen(),
+        );
+      case doctorPending:
+        return MaterialPageRoute<void>(
+          builder: (_) => const DoctorPendingScreen(),
+        );
+      case doctorRejected:
+        return MaterialPageRoute<void>(
+          builder: (_) => const DoctorRejectedScreen(),
+        );
+      case adminShell:
+        return MaterialPageRoute<void>(
+          builder: (_) => const AdminShellScreen(),
         );
       default:
         return MaterialPageRoute<void>(builder: (_) => const LoginScreen());

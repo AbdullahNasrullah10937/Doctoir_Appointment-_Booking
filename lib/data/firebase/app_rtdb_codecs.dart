@@ -94,20 +94,19 @@ class MedicationReminderRtdbCodec {
 class AppNotificationRtdbCodec {
   AppNotificationRtdbCodec._();
 
-  // title and message are encrypted because they often contain patient names
-  // and clinical details (e.g. "Token #12 for Dr. Ahmed confirmed").
-  // type, timeLabel, and isUnread stay plain for server-side filtering.
+  // Title and message are stored as plaintext for cross-device compatibility.
+  // The AES key is device-local, so encrypting these fields causes garbled
+  // text whenever the user reinstalls or logs in from a new device.
+  // A createdAtMillis timestamp is stored so the UI can show relative times.
 
   static Map<String, dynamic> encode(AppNotification notification) {
     return <String, dynamic>{
       'id': notification.id,
-      'title': EncryptionService.encrypt(notification.title),
-      'message': EncryptionService.encrypt(notification.message),
-      // Plain — used for filtering/ordering without decryption.
+      'title': notification.title,
+      'message': notification.message,
       'type': notification.type.name,
-      'timeLabel': notification.timeLabel,
       'isUnread': notification.isUnread,
-      'updatedAtMillis': DateTime.now().toUtc().millisecondsSinceEpoch,
+      'createdAtMillis': DateTime.now().toUtc().millisecondsSinceEpoch,
     };
   }
 
@@ -119,25 +118,46 @@ class AppNotificationRtdbCodec {
       orElse: () => NotificationType.system,
     );
 
-    String title;
-    String message;
-    try {
-      title = EncryptionService.decrypt('${raw['title'] ?? ''}');
-      message = EncryptionService.decrypt('${raw['message'] ?? ''}');
-    } catch (_) {
-      // Fallback for pre-migration plain-text records.
-      title = '${raw['title'] ?? ''}';
-      message = '${raw['message'] ?? ''}';
+    // Handle title/message: new records are plaintext; old records may be
+    // AES ciphertexts (format "<ivBase64>:<cipherBase64>").
+    String title = '${raw['title'] ?? ''}';
+    String message = '${raw['message'] ?? ''}';
+    if (title.contains(':') && title.length > 24) {
+      // Looks like a legacy AES ciphertext — attempt decryption.
+      try {
+        title = EncryptionService.decrypt(title);
+        message = EncryptionService.decrypt(message);
+      } catch (_) {
+        // Encrypted with a different device key — show a safe placeholder.
+        title = 'Previous Notification';
+        message = 'Open the app to see your latest updates.';
+      }
     }
+
+    // Compute a human-readable relative time from the stored timestamp.
+    final millis = raw['createdAtMillis'] ?? raw['updatedAtMillis'];
+    final timeLabel = millis is int
+        ? _timeAgo(millis)
+        : '${raw['timeLabel'] ?? 'Earlier'}';
 
     return AppNotification(
       id: id.isEmpty ? 'notification_missing' : id,
       title: title,
       message: message,
       type: resolvedType,
-      timeLabel: '${raw['timeLabel'] ?? ''}',
+      timeLabel: timeLabel,
       isUnread: raw['isUnread'] != false,
     );
+  }
+
+  /// Converts a UTC-millisecond timestamp to a short relative label.
+  static String _timeAgo(int utcMillis) {
+    final diff = DateTime.now().toUtc().millisecondsSinceEpoch - utcMillis;
+    if (diff < 60000) return 'Just now';
+    if (diff < 3600000) return '${(diff / 60000).floor()} min ago';
+    if (diff < 86400000) return '${(diff / 3600000).floor()} hr ago';
+    if (diff < 604800000) return '${(diff / 86400000).floor()} d ago';
+    return '${(diff / 604800000).floor()} wk ago';
   }
 }
 
@@ -147,6 +167,7 @@ class QueueSnapshotRtdbCodec {
   static Map<String, dynamic> encode(QueueSnapshot snapshot) {
     return <String, dynamic>{
       'doctorName': snapshot.doctorName,
+      'doctorId': snapshot.doctorId ?? '',
       'clinicLocation': snapshot.clinicLocation,
       'yourToken': snapshot.yourToken,
       'currentToken': snapshot.currentToken,
@@ -159,6 +180,10 @@ class QueueSnapshotRtdbCodec {
   static QueueSnapshot decode(Map<dynamic, dynamic> raw) {
     return QueueSnapshot(
       doctorName: '${raw['doctorName'] ?? 'Doctor'}',
+      doctorId:
+          raw['doctorId'] is String && '${raw['doctorId']}'.isNotEmpty
+              ? '${raw['doctorId']}'
+              : null,
       clinicLocation: '${raw['clinicLocation'] ?? ''}',
       yourToken: _asInt(raw['yourToken'], fallback: 1).clamp(1, 99999),
       currentToken: _asInt(raw['currentToken'], fallback: 1).clamp(1, 99999),
@@ -181,6 +206,7 @@ class DoctorScheduleRtdbCodec {
       'morningEnd': schedule.morningEnd,
       'eveningStart': schedule.eveningStart,
       'eveningEnd': schedule.eveningEnd,
+      'blockedDates': schedule.blockedDates,
       'updatedAtMillis': DateTime.now().toUtc().millisecondsSinceEpoch,
     };
   }
@@ -192,6 +218,7 @@ class DoctorScheduleRtdbCodec {
       morningEnd: '${raw['morningEnd'] ?? ''}',
       eveningStart: '${raw['eveningStart'] ?? ''}',
       eveningEnd: '${raw['eveningEnd'] ?? ''}',
+      blockedDates: _asStringList(raw['blockedDates']),
     );
   }
 }
@@ -373,4 +400,83 @@ List<String> _asStringList(dynamic value) {
         .toList();
   }
   return const <String>[];
+}
+
+// ─── Prescription (full, doctor-authored) ─────────────────────────────────────
+
+class PrescriptionRtdbCodec {
+  PrescriptionRtdbCodec._();
+
+  // The full prescription (including medicine list) is stored encrypted so no
+  // PHI is readable in the Firebase console. Only the dateUtcMillis stays plain
+  // for chronological ordering.
+  static Map<String, dynamic> encode(Prescription rx) {
+    final sensitiveJson = jsonEncode(<String, dynamic>{
+      'id': rx.id,
+      'doctorName': rx.doctorName,
+      'patientName': rx.patientName,
+      'diagnosis': rx.diagnosis,
+      'notes': rx.notes,
+      'medicines': rx.medicines
+          .map((m) => <String, dynamic>{
+                'name': m.name,
+                'dose': m.dose,
+                'frequency': m.frequency,
+                'duration': m.duration,
+              })
+          .toList(),
+    });
+
+    return <String, dynamic>{
+      'encryptedPayload': EncryptionService.encrypt(sensitiveJson),
+      // Plain — used for ordering only.
+      'dateUtcMillis': rx.date.toUtc().millisecondsSinceEpoch,
+      'updatedAtMillis': DateTime.now().toUtc().millisecondsSinceEpoch,
+    };
+  }
+
+  static Prescription? decode(Map<dynamic, dynamic> raw, {String? fallbackId}) {
+    final encryptedPayload = '${raw['encryptedPayload'] ?? ''}';
+    if (encryptedPayload.isEmpty) return null;
+
+    late Map<String, dynamic> sensitive;
+    try {
+      sensitive =
+          jsonDecode(EncryptionService.decrypt(encryptedPayload))
+              as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+
+    final id = '${sensitive['id'] ?? fallbackId ?? 'rx_missing'}';
+    final dateMillis = _asInt(raw['dateUtcMillis'], fallback: 0);
+    final date = dateMillis > 0
+        ? DateTime.fromMillisecondsSinceEpoch(dateMillis, isUtc: true).toLocal()
+        : DateTime.now();
+
+    final rawMedicines = sensitive['medicines'];
+    final medicines = <PrescriptionMedicine>[];
+    if (rawMedicines is List) {
+      for (final item in rawMedicines) {
+        if (item is Map) {
+          medicines.add(PrescriptionMedicine(
+            name: '${item['name'] ?? ''}',
+            dose: '${item['dose'] ?? ''}',
+            frequency: '${item['frequency'] ?? ''}',
+            duration: '${item['duration'] ?? ''}',
+          ));
+        }
+      }
+    }
+
+    return Prescription(
+      id: id,
+      date: date,
+      doctorName: '${sensitive['doctorName'] ?? 'Doctor'}',
+      patientName: '${sensitive['patientName'] ?? 'Patient'}',
+      diagnosis: '${sensitive['diagnosis'] ?? ''}',
+      notes: '${sensitive['notes'] ?? ''}',
+      medicines: medicines,
+    );
+  }
 }

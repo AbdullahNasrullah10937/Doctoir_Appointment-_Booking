@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../domain/entities/app_entities.dart';
@@ -83,12 +84,23 @@ Widget buildEmergencyCard(
           ),
         ),
         ElevatedButton(
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Dialing $number - $title (mock)...'),
-              ),
-            );
+          onPressed: () async {
+            final uri = Uri(scheme: 'tel', path: number);
+            try {
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri);
+              } else {
+                throw 'Could not launch dialer';
+              }
+            } catch (e) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Could not open phone dialer: $e'),
+                  ),
+                );
+              }
+            }
           },
           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.danger),
           child: const Text('Call'),

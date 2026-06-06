@@ -58,6 +58,10 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
     setState(() => _isSubmitting = false);
 
+    if (appState.role == UserRole.admin) {
+      Navigator.of(context).pushReplacementNamed(AppRouter.adminShell);
+      return;
+    }
     if (appState.role == UserRole.doctor) {
       Navigator.of(context).pushReplacementNamed(AppRouter.doctorShell);
       return;
@@ -80,6 +84,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
       if (appState.isLoggedIn) {
+        if (appState.role == UserRole.admin) {
+          Navigator.of(context).pushReplacementNamed(AppRouter.adminShell);
+          return;
+        }
         if (appState.role == UserRole.doctor) {
           Navigator.of(context).pushReplacementNamed(AppRouter.doctorShell);
           return;

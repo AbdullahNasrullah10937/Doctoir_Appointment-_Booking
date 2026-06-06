@@ -4,8 +4,11 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/data/latest_all.dart' as tz_data;
+import 'package:timezone/timezone.dart' as tz;
 
 import '../../../presentation/routes/app_router.dart';
+import '../../../domain/entities/app_entities.dart' hide NotificationType;
 import 'notification_payload.dart';
 
 // ─── Background handler ───────────────────────────────────────────────────────
@@ -24,6 +27,16 @@ const AndroidNotificationChannel _channel = AndroidNotificationChannel(
   'Qurexa Notifications',          // Display name
   description: 'Appointment updates, reminders, and doctor messages.',
   importance: Importance.max,
+);
+
+// ─── Medication reminder channel ──────────────────────────────────────────────
+const AndroidNotificationChannel _reminderChannel = AndroidNotificationChannel(
+  'qurexa_medication_reminders',
+  'Medication Reminders',
+  description: 'Daily medication dose reminders.',
+  importance: Importance.max,
+  sound: RawResourceAndroidNotificationSound('notification_sound'),
+  playSound: true,
 );
 
 /// Full-lifecycle FCM + Local Notification service for Qurexa.
@@ -50,6 +63,9 @@ class NotificationService {
   Future<void> initialize(GlobalKey<NavigatorState> navigatorKey) async {
     _navigatorKey = navigatorKey;
 
+    // ── Initialize timezone database for scheduled alarms ──────────────────
+    tz_data.initializeTimeZones();
+
     // ── Local notifications setup ──────────────────────────────────────────
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosSettings = DarwinInitializationSettings(
@@ -62,11 +78,11 @@ class NotificationService {
       onDidReceiveNotificationResponse: _onLocalNotificationTapped,
     );
 
-    // ── Create Android notification channel ───────────────────────────────
-    await _localPlugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(_channel);
+    // ── Create Android notification channels ───────────────────────────────
+    final androidPlugin = _localPlugin
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    await androidPlugin?.createNotificationChannel(_channel);
+    await androidPlugin?.createNotificationChannel(_reminderChannel);
 
     // ── Request FCM permission (iOS + Android 13+) ─────────────────────────
     await _requestPermission();
@@ -107,6 +123,16 @@ class NotificationService {
           ?.requestNotificationsPermission();
     } catch (e) {
       debugPrint('[NotificationService] Android notification permission request failed: $e');
+    }
+
+    // Request exact alarm permission on Android 12+ (API 31+)
+    try {
+      await _localPlugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.requestExactAlarmsPermission();
+    } catch (e) {
+      debugPrint('[NotificationService] Exact alarm permission request failed: $e');
     }
   }
 
@@ -201,7 +227,7 @@ class NotificationService {
     }
   }
 
-  /// Displays a heads-up notification manually.
+  /// Displays a heads-up notification immediately.
   Future<void> showNotification({
     required int id,
     required String title,
@@ -229,6 +255,110 @@ class NotificationService {
       ),
       payload: payload,
     );
+  }
+
+  // ─── Medication reminder scheduling ───────────────────────────────────────
+
+  /// Schedules a daily device alarm for each time in [reminder.times].
+  ///
+  /// Time strings are expected in "h:mm AM/PM" format, e.g. "9:00 AM".
+  /// Each alarm gets a stable unique ID derived from the reminder id + index
+  /// so it can be cancelled individually.
+  Future<void> scheduleReminder(MedicationReminder reminder) async {
+    // Cancel any existing alarms for this reminder before re-scheduling.
+    await cancelReminder(reminder.id);
+
+    if (!reminder.isEnabled) return;
+
+    for (int i = 0; i < reminder.times.length; i++) {
+      final scheduledTime = _nextOccurrence(reminder.times[i]);
+      if (scheduledTime == null) continue;
+
+      final notifId = _reminderNotifId(reminder.id, i);
+
+      try {
+        await _localPlugin.zonedSchedule(
+          notifId,
+          '💊 Medication Reminder',
+          'Time to take ${reminder.medicineName}',
+          scheduledTime,
+          NotificationDetails(
+            android: AndroidNotificationDetails(
+              _reminderChannel.id,
+              _reminderChannel.name,
+              channelDescription: _reminderChannel.description,
+              importance: Importance.max,
+              priority: Priority.max,
+              icon: '@mipmap/ic_launcher',
+            ),
+            iOS: const DarwinNotificationDetails(
+              presentAlert: true,
+              presentBadge: true,
+              presentSound: true,
+            ),
+          ),
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+          matchDateTimeComponents: DateTimeComponents.time, // repeat daily
+          payload: AppRouter.medicationReminders,
+        );
+      } catch (e) {
+        debugPrint('[NotificationService] Failed to schedule reminder: $e');
+      }
+    }
+  }
+
+  /// Cancels all scheduled alarms for [reminderId].
+  Future<void> cancelReminder(String reminderId) async {
+    // We allow up to 10 time slots per reminder.
+    for (int i = 0; i < 10; i++) {
+      final notifId = _reminderNotifId(reminderId, i);
+      await _localPlugin.cancel(notifId);
+    }
+  }
+
+  // ─── Helpers ──────────────────────────────────────────────────────────────
+
+  /// Converts a "h:mm AM/PM" string to the next daily TZDateTime occurrence.
+  /// Returns null if the string cannot be parsed.
+  static tz.TZDateTime? _nextOccurrence(String timeStr) {
+    try {
+      final trimmed = timeStr.trim().toUpperCase();
+      final isPm = trimmed.endsWith('PM');
+      final isAm = trimmed.endsWith('AM');
+      final withoutAmPm =
+          trimmed.replaceAll('AM', '').replaceAll('PM', '').trim();
+      final parts = withoutAmPm.split(':');
+      if (parts.length < 2) return null;
+
+      int hour = int.parse(parts[0]);
+      final minute = int.parse(parts[1]);
+
+      if (isPm && hour != 12) hour += 12;
+      if (isAm && hour == 12) hour = 0;
+
+      final now = tz.TZDateTime.now(tz.local);
+      var scheduled = tz.TZDateTime(
+        tz.local,
+        now.year,
+        now.month,
+        now.day,
+        hour,
+        minute,
+      );
+      // If the time has already passed today, schedule for tomorrow.
+      if (scheduled.isBefore(now)) {
+        scheduled = scheduled.add(const Duration(days: 1));
+      }
+      return scheduled;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Generates a stable int notification ID from a reminder id + slot index.
+  static int _reminderNotifId(String reminderId, int slotIndex) {
+    return (reminderId.hashCode.abs() % 100000) * 10 + slotIndex;
   }
 
   /// Returns the current FCM device token. Useful for saving to Firestore.

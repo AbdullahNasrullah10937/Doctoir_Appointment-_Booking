@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
@@ -63,12 +64,27 @@ class _EmergencyCard extends StatelessWidget {
   const _EmergencyCard({required this.entry});
   final _Emergency entry;
 
+  Future<void> _dialNumber(BuildContext context) async {
+    final uri = Uri(scheme: 'tel', path: entry.number);
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else {
+        throw 'Could not launch dialer for ${entry.number}';
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open phone dialer: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return MediQCard(
-      onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Dialing ${entry.number} — ${entry.title} (mock)...')),
-      ),
+      onTap: () => _dialNumber(context),
       child: Row(
         children: <Widget>[
           Container(

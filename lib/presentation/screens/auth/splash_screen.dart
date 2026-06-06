@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/app_entities.dart';
+import '../../../domain/entities/doctor_application.dart';
 import '../../routes/app_router.dart';
 import '../../state/app_scope.dart';
 
@@ -86,9 +87,22 @@ class _SplashScreenState extends State<SplashScreen>
       navigator.pushReplacementNamed(AppRouter.login);
       return;
     }
-    if (appState.role == UserRole.doctor) {
-      navigator.pushReplacementNamed(AppRouter.doctorShell);
+    if (appState.role == UserRole.admin) {
+      navigator.pushReplacementNamed(AppRouter.adminShell);
       return;
+    }
+    if (appState.role == UserRole.doctor) {
+      switch (appState.doctorVerificationStatus) {
+        case DoctorVerificationStatus.pending:
+          navigator.pushReplacementNamed(AppRouter.doctorPending);
+          return;
+        case DoctorVerificationStatus.rejected:
+          navigator.pushReplacementNamed(AppRouter.doctorRejected);
+          return;
+        case DoctorVerificationStatus.approved:
+          navigator.pushReplacementNamed(AppRouter.doctorShell);
+          return;
+      }
     }
     if (!appState.profileCompleted) {
       navigator.pushReplacementNamed(AppRouter.profileSetup);

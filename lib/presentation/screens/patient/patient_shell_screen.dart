@@ -43,15 +43,26 @@ class _PatientShellScreenState extends State<PatientShellScreen> {
           child: pages[appState.patientTabIndex],
         ),
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: appState.patientTabIndex,
-        onDestinationSelected: appState.setPatientTab,
-        destinations: const <NavigationDestination>[
-          NavigationDestination(icon: Icon(Icons.home_rounded), selectedIcon: Icon(Icons.home_rounded), label: 'Home'),
-          NavigationDestination(icon: Icon(Icons.calendar_month_outlined), selectedIcon: Icon(Icons.calendar_month_rounded), label: 'Appointments'),
-          NavigationDestination(icon: Icon(Icons.folder_open_outlined), selectedIcon: Icon(Icons.folder_open_rounded), label: 'Records'),
-          NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings_rounded), label: 'Settings'),
-        ],
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          color: AppTheme.qCard,
+          border: Border(top: BorderSide(color: AppTheme.qBorder)),
+        ),
+        child: NavigationBar(
+          height: 64,
+          selectedIndex: appState.patientTabIndex,
+          onDestinationSelected: appState.setPatientTab,
+          backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          elevation: 0,
+          destinations: const <NavigationDestination>[
+            NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: 'Home'),
+            NavigationDestination(icon: Icon(Icons.calendar_month_outlined), selectedIcon: Icon(Icons.calendar_month_rounded), label: 'Appointments'),
+            NavigationDestination(icon: Icon(Icons.folder_open_outlined), selectedIcon: Icon(Icons.folder_open_rounded), label: 'Records'),
+            NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings_rounded), label: 'Settings'),
+          ],
+        ),
       ),
     );
   }
@@ -76,10 +87,10 @@ class _PatientHomeTab extends StatelessWidget {
         Container(
           padding: const EdgeInsets.fromLTRB(AppTheme.space4, AppTheme.space4, AppTheme.space4, AppTheme.space5),
           decoration: const BoxDecoration(
-            gradient: AppTheme.primaryGradient,
+            gradient: AppTheme.qHeaderGradient,
             borderRadius: BorderRadius.only(
-              bottomLeft: Radius.circular(AppTheme.radiusXl),
-              bottomRight: Radius.circular(AppTheme.radiusXl),
+              bottomLeft: Radius.circular(28),
+              bottomRight: Radius.circular(28),
             ),
           ),
           child: Column(
@@ -92,10 +103,10 @@ class _PatientHomeTab extends StatelessWidget {
                       children: <Widget>[
                         Text(
                           'Hello, ${profile?.fullName.split(' ').first ?? 'Patient'} 👋',
-                          style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800),
+                          style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: -0.3),
                         ),
                         const SizedBox(height: 2),
-                        const Text('How are you feeling today?', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                        const Text('How are you feeling today?', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w400)),
                       ],
                     ),
                   ),
@@ -142,17 +153,20 @@ class _PatientHomeTab extends StatelessWidget {
               GestureDetector(
                 onTap: () => Navigator.of(context).pushNamed(AppRouter.doctorSearch),
                 child: Container(
-                  height: 46,
+                  height: 50,
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                    color: Colors.white.withValues(alpha: 0.95),
+                    borderRadius: BorderRadius.circular(25),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 2)),
+                    ],
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: const Row(
                     children: <Widget>[
-                      Icon(Icons.search_rounded, color: AppTheme.textMuted),
+                      Icon(Icons.search_rounded, color: AppTheme.qTextHint, size: 20),
                       SizedBox(width: 10),
-                      Text('Search doctor, specialty...', style: TextStyle(color: AppTheme.textMuted, fontSize: 14)),
+                      Text('Search doctor, specialty...', style: TextStyle(color: AppTheme.qTextHint, fontSize: 14)),
                     ],
                   ),
                 ),
@@ -171,7 +185,7 @@ class _PatientHomeTab extends StatelessWidget {
                 children: <Widget>[
                   Expanded(
                     child: QuickActionTile(
-                      icon: Icons.search_rounded, label: 'Find\nDoctor',
+                      icon: Icons.search_rounded, label: 'Find Doctor',
                       color: AppTheme.accentBlue,
                       onTap: () => Navigator.of(context).pushNamed(AppRouter.doctorSearch),
                     ),
@@ -179,7 +193,7 @@ class _PatientHomeTab extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: QuickActionTile(
-                      icon: Icons.health_and_safety_rounded, label: 'AI\nCheck',
+                      icon: Icons.health_and_safety_rounded, label: 'AI Check',
                       color: const Color(0xFF8B5CF6),
                       onTap: () => Navigator.of(context).pushNamed(AppRouter.aiSymptomChecker),
                     ),
@@ -601,10 +615,10 @@ class _PatientSettingsTab extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.fromLTRB(AppTheme.space4, AppTheme.space5, AppTheme.space4, AppTheme.space5),
           decoration: const BoxDecoration(
-            gradient: AppTheme.primaryGradient,
+            gradient: AppTheme.qHeaderGradient,
             borderRadius: BorderRadius.only(
-              bottomLeft: Radius.circular(AppTheme.radiusXl),
-              bottomRight: Radius.circular(AppTheme.radiusXl),
+              bottomLeft: Radius.circular(28),
+              bottomRight: Radius.circular(28),
             ),
           ),
           child: Column(

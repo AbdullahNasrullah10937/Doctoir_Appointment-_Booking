@@ -8,12 +8,17 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../core/firebase/firebase_bootstrap.dart';
+import '../../core/firebase/firebase_paths.dart';
 import '../../core/security/emergency_parser.dart';
 import '../../core/ai/services/ai_service.dart';
 import '../../core/notifications/notification_service.dart';
+import '../../data/firebase/app_rtdb_codecs.dart';
+import '../../data/firebase/appointment_rtdb_codec.dart';
+import '../../data/firebase/doctor_application_sync.dart';
 import '../../data/firebase/patient_cloud_sync.dart';
 import '../../data/repositories/mock_app_repository.dart';
 import '../../domain/entities/app_entities.dart';
+import '../../domain/entities/doctor_application.dart';
 import '../../domain/entities/role_mismatch_exception.dart';
 import '../../domain/repositories/app_repository.dart';
 import '../widgets/screen_helpers.dart';
@@ -24,6 +29,7 @@ class AppState extends ChangeNotifier {
 
   final AppRepository _repository;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseDatabase _db = FirebaseDatabase.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
 
   final DoctorCatalogCloudRepository _doctorCatalogRepo =
@@ -41,6 +47,11 @@ class AppState extends ChangeNotifier {
       DoctorQueueCloudRepository();
   final DoctorScheduleCloudRepository _doctorScheduleRepo =
       DoctorScheduleCloudRepository();
+  final PatientPrescriptionCloudRepository _prescriptionRepo =
+      PatientPrescriptionCloudRepository();
+
+  final DoctorApplicationRepository _doctorApplicationRepo =
+      DoctorApplicationRepository();
 
   StreamSubscription<List<Doctor>>? _doctorCatalogSub;
   StreamSubscription<List<Appointment>>? _appointmentsSub;
@@ -50,6 +61,7 @@ class AppState extends ChangeNotifier {
   StreamSubscription<QueueSnapshot?>? _queueSnapshotSub;
   StreamSubscription<List<PatientCase>>? _doctorQueueSub;
   StreamSubscription<DoctorSchedule?>? _doctorScheduleSub;
+  StreamSubscription<List<DoctorApplication>>? _adminApplicationsSub;
 
   final AiService _aiService = AiService();
 
@@ -103,6 +115,10 @@ class AppState extends ChangeNotifier {
   List<MedicationReminder> reminders = <MedicationReminder>[];
   List<AppNotification> notifications = <AppNotification>[];
   List<PatientCase> doctorQueue = <PatientCase>[];
+  List<DoctorApplication> doctorApplications = <DoctorApplication>[];
+  DoctorApplication? currentDoctorApplication;
+  DoctorVerificationStatus doctorVerificationStatus =
+      DoctorVerificationStatus.pending;
   DoctorSchedule doctorSchedule = const DoctorSchedule(
     workingDays: <String>['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
     morningStart: '9:00 AM',
@@ -174,12 +190,20 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> loadAppData() async {
+    // When Firebase is enabled all data arrives via real-time listeners started
+    // in _startRealtimeListeners(). There is nothing to load from the repository.
+    if (FirebaseBootstrap.enabled) {
+      _appDataLoaded = true;
+      return;
+    }
+
     if (_appDataLoaded || _loadingAppData) return;
 
     _loadingAppData = true;
     notifyListeners();
 
     try {
+      // Offline / dev-mode only — repository is MockAppRepository in this path.
       final results = await Future.wait([
         _repository.getDoctors(),
         _repository.getAppointments(),
@@ -257,6 +281,59 @@ class AppState extends ChangeNotifier {
       roleOverride: roleOverride,
       isNewUser: true,
     );
+  }
+
+  /// Updates AppState after the DoctorSignupScreen completes registration.
+  /// Auth account creation, uploads, and RTDB writes are done in the screen.
+  void setDoctorRegistered(DoctorApplication app) {
+    firebaseUserId = app.uid;
+    role = UserRole.doctor;
+    doctorVerificationStatus = DoctorVerificationStatus.pending;
+    currentDoctorApplication = app;
+    isLoggedIn = true;
+    profileCompleted = true;
+    notifyListeners();
+  }
+
+  Future<void> loadAdminData() async {
+    if (!FirebaseBootstrap.enabled) return;
+    _adminApplicationsSub?.cancel();
+    _adminApplicationsSub =
+        _doctorApplicationRepo.listenAllApplications().listen((apps) {
+      doctorApplications = apps;
+      notifyListeners();
+    });
+  }
+
+  Future<void> approveDoctorApplication(String uid) async {
+    await _doctorApplicationRepo.approveDoctor(uid);
+    doctorApplications = doctorApplications.map((app) {
+      if (app.uid == uid) return app.copyWith(status: DoctorVerificationStatus.approved);
+      return app;
+    }).toList();
+    notifyListeners();
+  }
+
+  Future<void> rejectDoctorApplication(
+      String uid, String reason) async {
+    await _doctorApplicationRepo.rejectDoctor(uid, reason: reason);
+    doctorApplications = doctorApplications.map((app) {
+      if (app.uid == uid) {
+        return app.copyWith(
+            status: DoctorVerificationStatus.rejected,
+            rejectionReason: reason);
+      }
+      return app;
+    }).toList();
+    notifyListeners();
+  }
+
+  Future<void> resubmitDoctorApplication(DoctorApplication updated) async {
+    await _doctorApplicationRepo.resubmitApplication(updated);
+    currentDoctorApplication =
+        updated.copyWith(status: DoctorVerificationStatus.pending);
+    doctorVerificationStatus = DoctorVerificationStatus.pending;
+    notifyListeners();
   }
 
   Future<void> loginWithGoogle({required UserRole selectedRole}) async {
@@ -343,6 +420,9 @@ class AppState extends ChangeNotifier {
     patientTabIndex = 0;
     doctorTabIndex = 0;
     latestAiSuggestions = <String>[];
+    doctorVerificationStatus = DoctorVerificationStatus.pending;
+    currentDoctorApplication = null;
+    doctorApplications = <DoctorApplication>[];
     notifyListeners();
   }
 
@@ -410,8 +490,9 @@ class AppState extends ChangeNotifier {
         // storedRole is the single source of truth. If the caller supplied a
         // roleOverride (i.e. the user selected a role on the login page) and
         // it differs from what is permanently stored, reject the attempt.
+        // Special case: admin users bypass this check.
         final storedRole = restored.restoredRole;
-        if (roleOverride != null && roleOverride != storedRole) {
+        if (storedRole != UserRole.admin && roleOverride != null && roleOverride != storedRole) {
           throw RoleMismatchException(
             selectedRole: roleOverride,
             registeredRole: storedRole,
@@ -436,7 +517,7 @@ class AppState extends ChangeNotifier {
           final fallback = await PatientCloudBootstrap.tryRestore();
           if (fallback?.metaState == MetaState.found) {
             final fallbackRole = fallback!.restoredRole;
-            if (roleOverride != null && roleOverride != fallbackRole) {
+            if (fallbackRole != UserRole.admin && roleOverride != null && roleOverride != fallbackRole) {
               throw RoleMismatchException(
                 selectedRole: roleOverride,
                 registeredRole: fallbackRole,
@@ -455,7 +536,27 @@ class AppState extends ChangeNotifier {
     role = resolvedRole;
     profile = restored.profile ?? profile;
     isLoggedIn = true;
-    profileCompleted = role == UserRole.doctor || profile != null;
+    profileCompleted =
+        role == UserRole.doctor || role == UserRole.admin || profile != null;
+
+    // Read doctor verification status from bootstrap snapshot
+    if (role == UserRole.doctor) {
+      final statusRaw = restored.verificationStatus;
+      doctorVerificationStatus = DoctorVerificationStatus.values.firstWhere(
+        (s) => s.name == statusRaw,
+        orElse: () => DoctorVerificationStatus.pending,
+      );
+      // Load the doctor's own application data
+      final uid = firebaseUserId;
+      if (uid != null && FirebaseBootstrap.enabled) {
+        unawaited(_doctorApplicationRepo
+            .getApplicationForUser(uid)
+            .then((app) {
+          currentDoctorApplication = app;
+          notifyListeners();
+        }));
+      }
+    }
 
     _startRealtimeListeners();
     notifyListeners();
@@ -469,10 +570,10 @@ class AppState extends ChangeNotifier {
     }
 
     _doctorCatalogSub = _doctorCatalogRepo.listenCatalog().listen((items) {
-      if (items.isNotEmpty) {
-        doctors = items;
-        notifyListeners();
-      }
+      // Always replace with Firebase data — even an empty list means no approved
+      // doctors yet. Never fall back to stale mock data.
+      doctors = items;
+      notifyListeners();
     });
 
     _appointmentsSub = _appointmentRepo
@@ -494,21 +595,27 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     });
 
+    // First emission silently loads existing notifications (no system popups).
+    // Subsequent emissions only fire popups for genuinely new unread items.
+    bool isFirstBatch = true;
     _notificationsSub = _notificationRepo
         .listenNotifications(firebaseUid: uid)
-        .skip(1) // Skip the initial snapshot — only react to live updates after login
         .listen((items) {
-          // Trigger local popup notifications for newly synced unread items
-          final oldIds = notifications.map((n) => n.id).toSet();
-          for (final item in items) {
-            if (item.isUnread && !oldIds.contains(item.id)) {
-              unawaited(
-                NotificationService.instance.showNotification(
-                  id: item.id.hashCode,
-                  title: item.title,
-                  body: item.message,
-                ),
-              );
+          if (isFirstBatch) {
+            isFirstBatch = false;
+          } else {
+            // Only trigger system popups for items that just appeared.
+            final oldIds = notifications.map((n) => n.id).toSet();
+            for (final item in items) {
+              if (item.isUnread && !oldIds.contains(item.id)) {
+                unawaited(
+                  NotificationService.instance.showNotification(
+                    id: item.id.hashCode,
+                    title: item.title,
+                    body: item.message,
+                  ),
+                );
+              }
             }
           }
           notifications = items;
@@ -551,6 +658,7 @@ class AppState extends ChangeNotifier {
     _queueSnapshotSub?.cancel();
     _doctorQueueSub?.cancel();
     _doctorScheduleSub?.cancel();
+    _adminApplicationsSub?.cancel();
     _doctorCatalogSub = null;
     _appointmentsSub = null;
     _recordsSub = null;
@@ -559,7 +667,8 @@ class AppState extends ChangeNotifier {
     _queueSnapshotSub = null;
     _doctorQueueSub = null;
     _doctorScheduleSub = null;
-    
+    _adminApplicationsSub = null;
+
     // Clear chat history on logout
     aiChatHistory = <ChatMessage>[
       const ChatMessage(
@@ -594,11 +703,13 @@ class AppState extends ChangeNotifier {
     }).toList();
   }
 
-  Appointment bookAppointment({required AppointmentDraft draft}) {
+  Future<Appointment> bookAppointment({required AppointmentDraft draft}) async {
     final token = 12 + Random().nextInt(10);
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final appointmentId = 'a_$now';
 
     final appointment = Appointment(
-      id: 'a_${DateTime.now().millisecondsSinceEpoch}',
+      id: appointmentId,
       doctor: draft.doctor,
       dateTime: draft.slotDateTime,
       tokenNumber: token,
@@ -607,10 +718,9 @@ class AppState extends ChangeNotifier {
       isVideoConsultation: draft.isVideoConsultation,
     );
 
-    appointments = <Appointment>[appointment, ...appointments];
-
-    queueSnapshot = QueueSnapshot(
+    final localQueueSnapshot = QueueSnapshot(
       doctorName: draft.doctor.name,
+      doctorId: draft.doctor.id,
       clinicLocation: draft.doctor.hospital,
       yourToken: token,
       currentToken: token - 4,
@@ -618,14 +728,48 @@ class AppState extends ChangeNotifier {
       estimatedWaitMinutes: 25,
     );
 
-    if (FirebaseBootstrap.enabled && queueSnapshot != null) {
-      unawaited(_appointmentRepo.upsert(appointment));
-      unawaited(_queueRepo.upsert(queueSnapshot!));
+    if (FirebaseBootstrap.enabled) {
+      final uid = _auth.currentUser?.uid;
+      if (uid != null) {
+        // Build a PatientCase to insert into the doctor's live queue.
+        final patientCase = PatientCase(
+          id: appointmentId,
+          patientName: profile?.fullName ?? 'Patient',
+          age: profile?.age ?? 0,
+          gender: profile?.gender ?? 'Unknown',
+          token: token,
+          symptoms: draft.visitReason,
+          conditions: const <String>[],
+          patientUid: uid,
+        );
+
+        final dateKey = _formatDateKey(draft.slotDateTime);
+        final timeLabel = _formatTimeOfDay(draft.slotDateTime);
+
+        // Single atomic multi-path write — prevents partial state:
+        // 1. appointment under patient's private path
+        // 2. queue snapshot for the patient
+        // 3. patient case in the doctor's queue
+        // 4. booked slot lock under doctor's node
+        final Map<String, dynamic> atomicUpdate = <String, dynamic>{
+          '${FirebasePaths.appointments(uid)}/$appointmentId':
+              AppointmentRtdbCodec.encode(appointment),
+          FirebasePaths.queueSnapshot(uid):
+              QueueSnapshotRtdbCodec.encode(localQueueSnapshot),
+          '${FirebasePaths.doctorQueue(draft.doctor.id)}/$appointmentId':
+              PatientCaseRtdbCodec.encode(patientCase),
+          'doctors/${draft.doctor.id}/booked_slots/$dateKey/$timeLabel': uid,
+        };
+        await _db.ref().update(atomicUpdate);
+      }
     }
+
+    appointments = <Appointment>[appointment, ...appointments];
+    queueSnapshot = localQueueSnapshot;
 
     _addNotification(
       AppNotification(
-        id: 'n_${DateTime.now().millisecondsSinceEpoch}',
+        id: 'n_$now',
         title: 'Booking Confirmed',
         message: 'Token #$token for ${draft.doctor.name} is confirmed.',
         type: NotificationType.appointment,
@@ -737,17 +881,22 @@ class AppState extends ChangeNotifier {
 
   void toggleReminder(String reminderId) {
     reminders = reminders.map((item) {
-      if (item.id != reminderId) {
-        return item;
-      }
-
+      if (item.id != reminderId) return item;
       return item.copyWith(isEnabled: !item.isEnabled);
     }).toList();
 
-    if (FirebaseBootstrap.enabled) {
-      final updated = reminders.where((item) => item.id == reminderId);
-      if (updated.isNotEmpty) {
-        unawaited(_reminderRepo.upsert(updated.first));
+    final updated = reminders.where((r) => r.id == reminderId);
+    if (updated.isNotEmpty) {
+      final reminder = updated.first;
+      // Persist toggle to Firebase.
+      if (FirebaseBootstrap.enabled) {
+        unawaited(_reminderRepo.upsert(reminder));
+      }
+      // Schedule or cancel device alarm based on new state.
+      if (reminder.isEnabled) {
+        unawaited(NotificationService.instance.scheduleReminder(reminder));
+      } else {
+        unawaited(NotificationService.instance.cancelReminder(reminder.id));
       }
     }
 
@@ -1028,8 +1177,54 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<Prescription> getPrescriptionForRecord(HealthRecord record) {
-    return _repository.getPrescriptionForRecord(record);
+  Future<Prescription> getPrescriptionForRecord(HealthRecord record) async {
+    // Try to fetch the doctor-authored full prescription from Firebase first.
+    if (FirebaseBootstrap.enabled) {
+      final uid = firebaseUserId;
+      if (uid != null) {
+        final real = await _prescriptionRepo.getForRecord(record, uid);
+        if (real != null) return real;
+      }
+    }
+    // Fallback: reconstruct from the HealthRecord's real data stored in Firebase.
+    // This contains the actual doctor name and issue — no mock values.
+    return _buildPrescriptionFromRecord(record);
+  }
+
+  /// Reconstructs a Prescription from a HealthRecord when no dedicated
+  /// prescription document exists (e.g. older records or connectivity issues).
+  Prescription _buildPrescriptionFromRecord(HealthRecord record) {
+    // Parse out individual medicines from the comma-separated prescription summary.
+    final List<PrescriptionMedicine> parsedMedicines = record.prescriptionSummary
+        .split(',')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .map((name) => PrescriptionMedicine(
+              name: name,
+              dose: '',
+              frequency: 'As directed',
+              duration: 'As directed',
+            ))
+        .toList();
+
+    return Prescription(
+      id: 'rx_${record.id}',
+      date: record.date,
+      doctorName: record.doctorName,
+      patientName: profile?.fullName ?? 'Patient',
+      diagnosis: record.diagnosisNotes,
+      medicines: parsedMedicines.isNotEmpty
+          ? parsedMedicines
+          : const <PrescriptionMedicine>[
+              PrescriptionMedicine(
+                name: 'See prescription notes',
+                dose: '',
+                frequency: '',
+                duration: '',
+              ),
+            ],
+      notes: record.prescriptionSummary,
+    );
   }
 
   void sendDoctorPrescription({
@@ -1039,15 +1234,19 @@ class AppState extends ChangeNotifier {
   }) {
     // Use the logged-in doctor's name from their profile, with a safe fallback.
     final doctorName = profile?.fullName ?? 'Doctor';
+    final doctorUid = _auth.currentUser?.uid;
+    final patientUid = patientCase.patientUid;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final caseId = patientCase.id;
 
     final summary = medicines
         .map((medicine) => '${medicine.name} ${medicine.dose}')
         .join(', ');
 
     final newRecord = HealthRecord(
-      id: 'r_${DateTime.now().millisecondsSinceEpoch}',
+      id: 'r_$caseId',
       date: DateTime.now(),
-      doctorName: doctorName, // fixed: was always hardcoded 'Dr. Sara Ali'
+      doctorName: doctorName,
       issue: patientCase.symptoms,
       diagnosisNotes: notes,
       prescriptionSummary: summary,
@@ -1055,11 +1254,11 @@ class AppState extends ChangeNotifier {
 
     records = <HealthRecord>[newRecord, ...records];
 
-    // Build new reminders list — keep a reference to the new ones for upsert.
+    // Build new reminders list.
     final newReminders = medicines
         .map(
           (medicine) => MedicationReminder(
-            id: 'm_${DateTime.now().millisecondsSinceEpoch}_${medicine.name}',
+            id: 'm_${caseId}_${medicine.name}',
             medicineName: '${medicine.name} ${medicine.dose}',
             times: const <String>['9:00 AM', '3:00 PM', '9:00 PM'],
             remainingDays: 5,
@@ -1070,17 +1269,74 @@ class AppState extends ChangeNotifier {
 
     reminders = <MedicationReminder>[...newReminders, ...reminders];
 
-    // Sync to Firebase only when properly initialised.
-    if (FirebaseBootstrap.enabled) {
-      unawaited(_recordRepo.upsert(newRecord));
+    if (FirebaseBootstrap.enabled && doctorUid != null && patientUid != null) {
+      // Build the full Prescription object for storage.
+      final fullPrescription = Prescription(
+        id: 'rx_$caseId',
+        date: DateTime.now(),
+        doctorName: doctorName,
+        patientName: patientCase.patientName,
+        diagnosis: notes,
+        medicines: medicines,
+        notes: notes,
+      );
+
+      // Build AppNotification for the patient to notify them.
+      final patientNotification = AppNotification(
+        id: 'n_rx_$caseId',
+        title: 'Prescription Ready',
+        message: 'Dr. $doctorName has sent your prescription and set medication reminders.',
+        type: NotificationType.medication,
+        timeLabel: 'Now',
+      );
+
+      // Build atomic multi-path update:
+      // 1. Write health record to /patient_records/<patientUid>/<recordId>
+      // 2. Write full prescription to /patient_prescriptions/<patientUid>/<prescriptionId>
+      // 3. Write each reminder to /patient_reminders/<patientUid>/<reminderId>
+      // 4. Remove the patient case from /doctors/<doctorUid>/queue/<caseId>
+      // 5. Remove the patient's queue snapshot from /patient_queue_snapshots/<patientUid>
+      // 6. Update appointment status to 'completed'
+      // 7. Write AppNotification to /users/<patientUid>/notifications/<notificationId>
+      final Map<String, dynamic> atomicUpdate = <String, dynamic>{
+        '${FirebasePaths.records(patientUid)}/${newRecord.id}':
+            HealthRecordRtdbCodec.encode(newRecord),
+        '${FirebasePaths.patientPrescriptions(patientUid)}/${fullPrescription.id}':
+            PrescriptionRtdbCodec.encode(fullPrescription),
+        '${FirebasePaths.notifications(patientUid)}/${patientNotification.id}':
+            AppNotificationRtdbCodec.encode(patientNotification),
+      };
+
       for (final reminder in newReminders) {
-        unawaited(_reminderRepo.upsert(reminder));
+        atomicUpdate['${FirebasePaths.reminders(patientUid)}/${reminder.id}'] =
+            MedicationReminderRtdbCodec.encode(reminder);
       }
+
+      // Remove the patient from the doctor's active queue.
+      atomicUpdate['${FirebasePaths.doctorQueue(doctorUid)}/$caseId'] = null;
+
+      // Clear the patient's queue snapshot.
+      atomicUpdate[FirebasePaths.queueSnapshot(patientUid)] = null;
+
+      // Update appointment status to completed.
+      atomicUpdate[
+        '${FirebasePaths.appointments(patientUid)}/$caseId/status'
+      ] = AppointmentStatus.completed.name;
+      atomicUpdate[
+        '${FirebasePaths.appointments(patientUid)}/$caseId/updatedAtMillis'
+      ] = now;
+
+      unawaited(_db.ref().update(atomicUpdate));
+    }
+
+    // Schedule device alarms for all new reminders.
+    for (final reminder in newReminders) {
+      unawaited(NotificationService.instance.scheduleReminder(reminder));
     }
 
     _addNotification(
       AppNotification(
-        id: 'n_${DateTime.now().millisecondsSinceEpoch}',
+        id: 'n_$caseId',
         title: 'Prescription Ready',
         message: 'New digital prescription was shared with patient.',
         type: NotificationType.system,
@@ -1091,13 +1347,6 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateDoctorSchedule(DoctorSchedule value) {
-    doctorSchedule = value;
-    if (FirebaseBootstrap.enabled) {
-      unawaited(_doctorScheduleRepo.upsert(value));
-    }
-    notifyListeners();
-  }
 
   void markAllNotificationsAsRead() {
     notifications = notifications
@@ -1107,6 +1356,54 @@ class AppState extends ChangeNotifier {
       unawaited(_notificationRepo.markAllRead(notifications));
     }
     notifyListeners();
+  }
+
+  void deleteNotification(String notificationId) {
+    notifications = notifications
+        .where((item) => item.id != notificationId)
+        .toList();
+    if (FirebaseBootstrap.enabled) {
+      unawaited(_notificationRepo.delete(notificationId));
+    }
+    notifyListeners();
+  }
+
+  void insertNotification(AppNotification item) {
+    if (notifications.any((n) => n.id == item.id)) return;
+    notifications = <AppNotification>[item, ...notifications];
+    if (FirebaseBootstrap.enabled) {
+      unawaited(_notificationRepo.upsert(item));
+    }
+    notifyListeners();
+  }
+
+  Future<void> updateDoctorSchedule(DoctorSchedule value) async {
+    doctorSchedule = value;
+    notifyListeners();
+    if (FirebaseBootstrap.enabled) {
+      await _doctorScheduleRepo.upsert(value);
+    }
+  }
+
+  Stream<DoctorSchedule> getDoctorScheduleStream(String doctorUid) {
+    return _doctorScheduleRepo.listenDoctorSchedule(doctorUid: doctorUid);
+  }
+
+  Stream<Map<String, String>> getBookedSlotsStream(String doctorUid, String dateStr) {
+    return _doctorScheduleRepo.listenBookedSlots(doctorUid: doctorUid, dateStr: dateStr);
+  }
+
+  String _formatTimeOfDay(DateTime dt) {
+    final hour = dt.hour;
+    final minute = dt.minute;
+    final ampm = hour >= 12 ? 'PM' : 'AM';
+    final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+    final displayMinute = minute.toString().padLeft(2, '0');
+    return '$displayHour:$displayMinute $ampm';
+  }
+
+  String _formatDateKey(DateTime dt) {
+    return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
   }
 
   @override

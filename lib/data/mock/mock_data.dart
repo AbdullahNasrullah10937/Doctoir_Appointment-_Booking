@@ -214,6 +214,7 @@ class MockData {
   static QueueSnapshot queue() {
     return const QueueSnapshot(
       doctorName: 'Dr. Sara Ali',
+      doctorId: 'd1',
       clinicLocation: 'City Hospital, Room 3A, Lahore',
       yourToken: 18,
       currentToken: 14,

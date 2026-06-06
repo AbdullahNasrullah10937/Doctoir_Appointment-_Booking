@@ -39,6 +39,7 @@ class PatientCloudBootstrap {
 
     MetaState metaState = MetaState.notFound;
     UserRole resolvedRole = UserRole.patient;
+    String verificationStatus = 'pending';
 
     try {
       final metaSnap = await databaseInstance
@@ -48,9 +49,14 @@ class PatientCloudBootstrap {
       if (metaSnap.exists && metaSnap.value is Map) {
         final meta = Map<dynamic, dynamic>.from(metaSnap.value! as Map);
         final rawRole = '${meta['appRole'] ?? meta['role'] ?? 'patient'}';
-        resolvedRole = rawRole == UserRole.doctor.name
-            ? UserRole.doctor
-            : UserRole.patient;
+        if (rawRole == UserRole.doctor.name) {
+          resolvedRole = UserRole.doctor;
+        } else if (rawRole == UserRole.admin.name) {
+          resolvedRole = UserRole.admin;
+        } else {
+          resolvedRole = UserRole.patient;
+        }
+        verificationStatus = '${meta['verificationStatus'] ?? 'pending'}';
         metaState = MetaState.found;
       } else {
         metaState = MetaState.notFound;
@@ -78,6 +84,7 @@ class PatientCloudBootstrap {
       firebaseUserId: user.uid,
       restoredRole: resolvedRole,
       metaState: metaState,
+      verificationStatus: verificationStatus,
       profile: profile,
     );
   }
@@ -135,12 +142,14 @@ class PatientBootstrapSnapshot {
     required this.firebaseUserId,
     required this.restoredRole,
     required this.metaState,
+    this.verificationStatus = 'pending',
     this.profile,
   });
 
   final String firebaseUserId;
   final UserRole restoredRole;
   final MetaState metaState;
+  final String verificationStatus;
   final UserProfile? profile;
 }
 
@@ -718,6 +727,40 @@ class DoctorScheduleCloudRepository {
     });
   }
 
+  Stream<DoctorSchedule> listenDoctorSchedule({required String doctorUid}) {
+    if (!FirebaseBootstrap.enabled) {
+      return Stream<DoctorSchedule>.value(DoctorSchedule.fallback(doctorUid));
+    }
+
+    return _database.ref(FirebasePaths.doctorSchedule(doctorUid)).onValue.map((event) {
+      final value = event.snapshot.value;
+      if (value is! Map) {
+        return DoctorSchedule.fallback(doctorUid);
+      }
+      return DoctorScheduleRtdbCodec.decode(Map<dynamic, dynamic>.from(value));
+    });
+  }
+
+  Stream<Map<String, String>> listenBookedSlots({
+    required String doctorUid,
+    required String dateStr,
+  }) {
+    if (!FirebaseBootstrap.enabled) {
+      return Stream<Map<String, String>>.value(const <String, String>{});
+    }
+
+    return _database
+        .ref('doctors/$doctorUid/booked_slots/$dateStr')
+        .onValue
+        .map((event) {
+      final val = event.snapshot.value;
+      if (val is Map) {
+        return val.map((key, value) => MapEntry('$key', '$value'));
+      }
+      return const <String, String>{};
+    });
+  }
+
   Future<void> upsert(DoctorSchedule schedule) async {
     final user = _auth.currentUser;
     if (user == null || !FirebaseBootstrap.enabled) {
@@ -773,5 +816,77 @@ class DoctorCatalogCloudRepository {
     }
 
     await catalogRef().child(doctor.id).set(DoctorRtdbCodec.encode(doctor));
+  }
+}
+
+// ─── Full Prescription Store (doctor-written, patient-readable) ───────────────
+
+class PatientPrescriptionCloudRepository {
+  PatientPrescriptionCloudRepository({FirebaseDatabase? database})
+      : _database = database ?? FirebaseDatabase.instance;
+
+  final FirebaseDatabase _database;
+
+  DatabaseReference _prescriptionsRef(String patientUid) =>
+      _database.ref(FirebasePaths.patientPrescriptions(patientUid));
+
+  /// Write a full prescription (including medicine list) under the patient's node.
+  /// Called atomically alongside the HealthRecord write in sendDoctorPrescription.
+  Future<void> upsert({
+    required Prescription prescription,
+    required String patientUid,
+  }) async {
+    if (!FirebaseBootstrap.enabled) return;
+    await _prescriptionsRef(patientUid)
+        .child(prescription.id)
+        .set(PrescriptionRtdbCodec.encode(prescription));
+  }
+
+  /// Fetches the stored prescription whose id matches the record's id prefix.
+  /// Returns null if not found so the caller can build a fallback.
+  Future<Prescription?> getForRecord(
+    HealthRecord record,
+    String patientUid,
+  ) async {
+    if (!FirebaseBootstrap.enabled) return null;
+
+    try {
+      // Prescription ID is 'rx_<timestamp>' derived from record id 'r_<timestamp>'.
+      // Try the direct rx_ prefixed key first.
+      final rxId = 'rx_${record.id.replaceFirst('r_', '')}';
+      final snap = await _prescriptionsRef(patientUid)
+          .child(rxId)
+          .get()
+          .timeout(const Duration(seconds: 6));
+
+      if (snap.exists && snap.value is Map) {
+        return PrescriptionRtdbCodec.decode(
+          Map<dynamic, dynamic>.from(snap.value! as Map),
+          fallbackId: rxId,
+        );
+      }
+
+      // Fallback: scan all prescriptions and match by id
+      final allSnap = await _prescriptionsRef(patientUid)
+          .get()
+          .timeout(const Duration(seconds: 6));
+
+      if (allSnap.exists && allSnap.value is Map) {
+        final map = Map<dynamic, dynamic>.from(allSnap.value! as Map);
+        for (final entry in map.entries) {
+          if (entry.value is Map) {
+            final rx = PrescriptionRtdbCodec.decode(
+              Map<dynamic, dynamic>.from(entry.value as Map),
+              fallbackId: '${entry.key}',
+            );
+            if (rx != null) return rx;
+          }
+        }
+      }
+    } catch (_) {
+      // Suppress — caller will build a local fallback.
+    }
+
+    return null;
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
@@ -63,8 +64,8 @@ class HelpSupportScreen extends StatelessWidget {
                   const SectionHeading(title: 'Frequently Asked Questions'),
                   // FAQs
                   ...List<Widget>.generate(_faqs.length, (index) {
-                    final faq = _faqs[index];
-                    return MediQCard(
+                     final faq = _faqs[index];
+                     return MediQCard(
                       padding: EdgeInsets.zero,
                       child: Theme(
                         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -91,9 +92,76 @@ class HelpSupportScreen extends StatelessWidget {
                   const SizedBox(height: 8),
                   const SectionHeading(title: 'Contact Us'),
                   // Contact cards
-                  _ContactCard(icon: Icons.chat_rounded, color: AppTheme.accentBlue, title: 'Live Chat', subtitle: 'Average response in 2 minutes', onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Live chat opened (mock).')))),
-                  _ContactCard(icon: Icons.email_rounded, color: AppTheme.success, title: 'Email Support', subtitle: 'support@qurexa.pk', onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Email client opened (mock).')))),
-                  _ContactCard(icon: Icons.phone_rounded, color: AppTheme.warning, title: 'Call Helpline', subtitle: '+92-311-QUREXA-PK', onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Dialing helpline (mock).')))),
+                  _ContactCard(
+                    icon: Icons.chat_rounded,
+                    color: AppTheme.accentBlue,
+                    title: 'Live Chat',
+                    subtitle: 'Average response in 2 minutes',
+                    onTap: () async {
+                      final uri = Uri.parse('https://wa.me/923117873927');
+                      try {
+                        if (await canLaunchUrl(uri)) {
+                          await launchUrl(uri, mode: LaunchMode.externalApplication);
+                        } else {
+                          throw 'Could not launch WhatsApp';
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Could not open WhatsApp: $e')),
+                          );
+                        }
+                      }
+                    },
+                  ),
+                  _ContactCard(
+                    icon: Icons.email_rounded,
+                    color: AppTheme.success,
+                    title: 'Email Support',
+                    subtitle: 'support@qurexa.pk',
+                    onTap: () async {
+                      final uri = Uri(
+                        scheme: 'mailto',
+                        path: 'support@qurexa.pk',
+                        query: 'subject=Support Request - MediQ',
+                      );
+                      try {
+                        if (await canLaunchUrl(uri)) {
+                          await launchUrl(uri);
+                        } else {
+                          throw 'Could not launch email client';
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Could not open email client: $e')),
+                          );
+                        }
+                      }
+                    },
+                  ),
+                  _ContactCard(
+                    icon: Icons.phone_rounded,
+                    color: AppTheme.warning,
+                    title: 'Call Helpline',
+                    subtitle: '+92-311-7873927',
+                    onTap: () async {
+                      final uri = Uri(scheme: 'tel', path: '+923117873927');
+                      try {
+                        if (await canLaunchUrl(uri)) {
+                          await launchUrl(uri);
+                        } else {
+                          throw 'Could not launch dialer';
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Could not open phone dialer: $e')),
+                          );
+                        }
+                      }
+                    },
+                  ),
                 ],
               ),
             ),

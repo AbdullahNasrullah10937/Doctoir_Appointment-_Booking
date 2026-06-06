@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/app_entities.dart';
 import '../../routes/app_router.dart';
+import '../../state/app_scope.dart';
 import '../../widgets/common_widgets.dart';
 import '../../widgets/screen_helpers.dart';
 
@@ -345,109 +346,131 @@ class _InformationTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppTheme.space4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          // Personal bio
-          const Text(
-            'Personal Bio',
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '${doctor.name} is a highly experienced ${doctor.specialty} specialist with over ${doctor.experienceYears} years of expertise. They are known for patient-first care at ${doctor.hospital}.',
-            style: const TextStyle(
-              color: AppTheme.textSecondary,
-              height: 1.6,
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(height: 16),
-          // Appointment time info
-          const Text(
-            'Appointment Time',
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-          ),
-          const SizedBox(height: 10),
-          Row(
+    final appState = AppScope.of(context);
+    return StreamBuilder<DoctorSchedule>(
+      stream: appState.getDoctorScheduleStream(doctor.id),
+      builder: (context, snapshot) {
+        final schedule = snapshot.data ?? DoctorSchedule.fallback(doctor.id);
+
+        final daysStr = schedule.workingDays.isEmpty
+            ? 'Not available'
+            : schedule.workingDays.map((d) => d.substring(0, 3)).join(' • ');
+
+        final timeStr = '${schedule.morningStart}–${schedule.morningEnd} / ${schedule.eveningStart}–${schedule.eveningEnd}';
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(AppTheme.space4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              _InfoChip(
-                icon: Icons.calendar_today_rounded,
-                label: 'Mon – Fri',
+              // Personal bio
+              const Text(
+                'Personal Bio',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
               ),
-              const SizedBox(width: 10),
-              _InfoChip(
-                icon: Icons.access_time_rounded,
-                label: '10:00am–5:00pm',
+              const SizedBox(height: 8),
+              Text(
+                '${doctor.name} is a highly experienced ${doctor.specialty} specialist with over ${doctor.experienceYears} years of expertise. They are known for patient-first care at ${doctor.hospital}.',
+                style: const TextStyle(
+                  color: AppTheme.textSecondary,
+                  height: 1.6,
+                  fontSize: 13,
+                ),
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // Reviews
-          const Text(
-            'Patient Reviews',
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-          ),
-          const SizedBox(height: 8),
-          if (doctor.reviews.isEmpty)
-            const Text(
-              'No reviews yet.',
-              style: TextStyle(color: AppTheme.textMuted),
-            )
-          else
-            ...doctor.reviews.take(2).map(
-                  (r) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: MediQCard(
-                      margin: EdgeInsets.zero,
-                      padding: const EdgeInsets.all(AppTheme.space3),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Row(
+              const SizedBox(height: 16),
+              // Appointment time info
+              const Text(
+                'Appointment Time',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: _InfoChip(
+                      icon: Icons.calendar_today_rounded,
+                      label: daysStr,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: _InfoChip(
+                      icon: Icons.access_time_rounded,
+                      label: timeStr,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              // Reviews
+              const Text(
+                'Patient Reviews',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+              ),
+              const SizedBox(height: 8),
+              if (doctor.reviews.isEmpty)
+                const Text(
+                  'No reviews yet.',
+                  style: TextStyle(color: AppTheme.textMuted),
+                )
+              else
+                ...doctor.reviews.take(2).map(
+                      (r) => Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: MediQCard(
+                          margin: EdgeInsets.zero,
+                          padding: const EdgeInsets.all(AppTheme.space3),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: <Widget>[
-                              Text(
-                                r.userName,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13,
-                                ),
+                              Row(
+                                children: <Widget>[
+                                  Text(
+                                    r.userName,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  const Icon(
+                                    Icons.star_rounded,
+                                    color: AppTheme.warning,
+                                    size: 14,
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    r.rating.toStringAsFixed(1),
+                                    style: const TextStyle(
+                                      color: AppTheme.warning,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const Spacer(),
-                              const Icon(
-                                Icons.star_rounded,
-                                color: AppTheme.warning,
-                                size: 14,
-                              ),
-                              const SizedBox(width: 3),
+                              const SizedBox(height: 4),
                               Text(
-                                r.rating.toStringAsFixed(1),
+                                '"${r.comment}"',
                                 style: const TextStyle(
-                                  color: AppTheme.warning,
-                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.textSecondary,
                                   fontSize: 12,
+                                  height: 1.4,
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '"${r.comment}"',
-                            style: const TextStyle(
-                              color: AppTheme.textSecondary,
-                              fontSize: 12,
-                              height: 1.4,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
-                ),
-        ],
-      ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

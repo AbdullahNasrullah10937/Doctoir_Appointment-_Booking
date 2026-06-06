@@ -1,20 +1,30 @@
 {
   "rules": {
 
+    "roles": {
+      "$uid": {
+        ".read":  "auth != null && (auth.uid === $uid || root.child('roles').child(auth.uid).child('appRole').val() === 'admin')",
+        ".write": "auth != null && (auth.uid === $uid || root.child('roles').child(auth.uid).child('appRole').val() === 'admin')",
+        ".validate": "newData.hasChildren(['appRole', 'updatedAtMillis'])",
+
+        "appRole": {
+          ".validate": "(!data.exists() && (newData.val() === 'patient' || newData.val() === 'doctor')) || data.val() === newData.val()"
+        },
+
+        "verificationStatus": {
+          ".validate": "newData.isString() && (newData.val() === 'pending' || (data.exists() && data.val() === newData.val()) || root.child('roles').child(auth.uid).child('appRole').val() === 'admin')"
+        },
+
+        "updatedAtMillis": {
+          ".validate": "newData.isNumber()"
+        }
+      }
+    },
+
     "users": {
       "$uid": {
         ".read":  "auth != null && auth.uid === $uid",
         ".write": "auth != null && auth.uid === $uid",
-
-        "meta": {
-          ".validate": "newData.hasChildren(['appRole', 'updatedAtMillis'])",
-          "appRole": {
-            ".validate": "!data.exists() && newData.isString() && (newData.val() === 'patient' || newData.val() === 'doctor')"
-          },
-          "updatedAtMillis": {
-            ".validate": "newData.isNumber()"
-          }
-        },
 
         "profile": {
           ".validate": "newData.hasChildren(['encryptedData', 'nameHash', 'age', 'gender'])"
@@ -26,37 +36,65 @@
           }
         },
 
-        "records": {
-          "$recordId": {
-            ".validate": "newData.hasChildren(['id', 'dateUtcMillis', 'doctorName', 'issue'])"
-          }
-        },
-
-        "reminders": {
-          "$reminderId": {
-            ".validate": "newData.hasChildren(['id', 'medicineName', 'isEnabled'])"
-          }
-        },
-
         "notifications": {
           "$notificationId": {
             ".validate": "newData.hasChildren(['id', 'title', 'message', 'type', 'isUnread'])"
           }
         },
 
-        "queueSnapshot": {
-          ".validate": "newData.hasChildren(['doctorName', 'yourToken', 'currentToken', 'patientsAhead'])"
+        "ai_chat_history": {}
+      }
+    },
+
+    "patient_records": {
+      "$patientUid": {
+        ".read": "auth != null && auth.uid === $patientUid",
+
+        "$recordId": {
+          ".write": "auth != null && (auth.uid === $patientUid || root.child('roles').child(auth.uid).child('appRole').val() === 'doctor' && root.child('roles').child(auth.uid).child('verificationStatus').val() === 'approved')",
+          ".validate": "!newData.exists() || newData.hasChildren(['encryptedPayload', 'dateUtcMillis', 'updatedAtMillis'])"
         }
+      }
+    },
+
+    "patient_reminders": {
+      "$patientUid": {
+        ".read": "auth != null && auth.uid === $patientUid",
+
+        "$reminderId": {
+          ".write": "auth != null && (auth.uid === $patientUid || root.child('roles').child(auth.uid).child('appRole').val() === 'doctor' && root.child('roles').child(auth.uid).child('verificationStatus').val() === 'approved')",
+          ".validate": "!newData.exists() || newData.hasChildren(['id', 'isEnabled'])"
+        }
+      }
+    },
+
+    "patient_prescriptions": {
+      "$patientUid": {
+        ".read": "auth != null && auth.uid === $patientUid",
+
+        "$prescriptionId": {
+          ".write": "auth != null && (auth.uid === $patientUid || root.child('roles').child(auth.uid).child('appRole').val() === 'doctor' && root.child('roles').child(auth.uid).child('verificationStatus').val() === 'approved')",
+          ".validate": "!newData.exists() || newData.hasChildren(['encryptedPayload', 'dateUtcMillis', 'updatedAtMillis'])"
+        }
+      }
+    },
+
+    "patient_queue_snapshots": {
+      "$patientUid": {
+        ".read": "auth != null && auth.uid === $patientUid",
+        ".write": "auth != null && (auth.uid === $patientUid || root.child('roles').child(auth.uid).child('appRole').val() === 'doctor' && root.child('roles').child(auth.uid).child('verificationStatus').val() === 'approved')",
+        ".validate": "!newData.exists() || newData.hasChildren(['doctorName', 'doctorId', 'yourToken', 'currentToken', 'patientsAhead'])"
       }
     },
 
     "doctors": {
       "$uid": {
         "queue": {
+          ".read":  "auth != null && auth.uid === $uid",
           "$caseId": {
             ".read":  "auth != null && auth.uid === $uid",
-            ".write": "auth != null",
-            ".validate": "newData.hasChildren(['id', 'patientUid', 'patientName', 'token']) && newData.child('patientUid').val() === auth.uid"
+            ".write": "auth != null && (auth.uid === $uid || (newData.exists() && newData.child('patientUid').val() === auth.uid))",
+            ".validate": "!newData.exists() || (newData.hasChildren(['patientUid', 'token', 'age', 'gender', 'encryptedPayload']) && newData.child('patientUid').val() === auth.uid)"
           }
         },
 
@@ -64,6 +102,16 @@
           ".read":  "auth != null",
           ".write": "auth != null && auth.uid === $uid",
           ".validate": "newData.hasChildren(['workingDays', 'morningStart', 'morningEnd'])"
+        },
+
+        "booked_slots": {
+          ".read": "auth != null",
+          "$date": {
+            "$slot": {
+              ".write": "auth != null && (!data.exists() || !newData.exists())",
+              ".validate": "newData.isString()"
+            }
+          }
         }
       }
     },
@@ -76,6 +124,13 @@
           ".write": "auth != null && auth.uid === $doctorId",
           ".validate": "newData.hasChildren(['id', 'name', 'specialty', 'hospital', 'rating'])"
         }
+      }
+    },
+
+    "doctor_applications": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('roles').child(auth.uid).child('appRole').val() === 'admin')",
+        ".write": "auth != null && (auth.uid === $uid || root.child('roles').child(auth.uid).child('appRole').val() === 'admin')"
       }
     }
 

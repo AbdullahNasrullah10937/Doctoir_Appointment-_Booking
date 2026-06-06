@@ -4,6 +4,9 @@ export 'auth/onboarding_screen.dart';
 export 'auth/profile_setup_screen.dart';
 export 'auth/signup_screen.dart';
 export 'auth/splash_screen.dart';
+export 'auth/doctor_signup_screen.dart';
+export 'auth/doctor_pending_screen.dart';
+export 'auth/doctor_rejected_screen.dart';
 
 // ─── Doctor ───────────────────────────────────────────────────────────────────
 export 'doctor/doctor_patient_details_screen.dart';
@@ -26,3 +29,6 @@ export 'patient/payment_screen.dart';
 export 'patient/queue_tracker_screen.dart';
 export 'patient/rate_review_screen.dart';
 export 'patient/video_consultation_screen.dart';
+
+// ─── Admin ────────────────────────────────────────────────────────────────────
+export 'admin/admin_shell_screen.dart';

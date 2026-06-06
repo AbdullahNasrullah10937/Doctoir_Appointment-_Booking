@@ -59,26 +59,75 @@ class NotificationsScreen extends StatelessWidget {
                   : ListView.builder(
                       padding: const EdgeInsets.all(AppTheme.space4),
                       itemCount: notifications.length,
-                      itemBuilder: (_, index) {
+                      itemBuilder: (ctx, index) {
                         final item = notifications[index];
-                        return _NotificationCard(
-                          notification: item,
-                          onTap: () {
-                            switch (item.type) {
-                              case NotificationType.queue:
-                                final upcoming = appState.nextUpcomingAppointment;
-                                if (upcoming != null) Navigator.of(context).pushNamed(AppRouter.queueTracker, arguments: upcoming);
-                              case NotificationType.medication:
-                                Navigator.of(context).pushNamed(AppRouter.medicationReminders);
-                              case NotificationType.appointment:
-                                appState.setPatientTab(1);
-                                Navigator.of(context).pushNamedAndRemoveUntil(AppRouter.patientShell, (_) => false);
-                              case NotificationType.ai:
-                                Navigator.of(context).pushNamed(AppRouter.aiAssistant);
-                              case NotificationType.system:
-                                break;
-                            }
+                        return Dismissible(
+                          key: Key(item.id),
+                          direction: DismissDirection.startToEnd,
+                          background: Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.symmetric(horizontal: 18),
+                            alignment: Alignment.centerLeft,
+                            decoration: BoxDecoration(
+                              color: AppTheme.danger,
+                              borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+                            ),
+                            child: const Row(
+                              children: <Widget>[
+                                Icon(Icons.delete_outline_rounded, color: Colors.white, size: 22),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Delete',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          onDismissed: (_) {
+                            final deleted = item;
+                            appState.deleteNotification(item.id);
+                            ScaffoldMessenger.of(context).clearSnackBars();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
+                                backgroundColor: AppTheme.textPrimary,
+                                content: const Text(
+                                  'Notification deleted',
+                                  style: TextStyle(color: Colors.white, fontSize: 13),
+                                ),
+                                action: SnackBarAction(
+                                  label: 'Undo',
+                                  textColor: AppTheme.qAccent,
+                                  onPressed: () => appState.insertNotification(deleted),
+                                ),
+                              ),
+                            );
                           },
+                          child: _NotificationCard(
+                            notification: item,
+                            onTap: () {
+                              switch (item.type) {
+                                case NotificationType.queue:
+                                  final upcoming = appState.nextUpcomingAppointment;
+                                  if (upcoming != null) Navigator.of(context).pushNamed(AppRouter.queueTracker, arguments: upcoming);
+                                case NotificationType.medication:
+                                  Navigator.of(context).pushNamed(AppRouter.medicationReminders);
+                                case NotificationType.appointment:
+                                  appState.setPatientTab(1);
+                                  Navigator.of(context).pushNamedAndRemoveUntil(AppRouter.patientShell, (_) => false);
+                                case NotificationType.ai:
+                                  Navigator.of(context).pushNamed(AppRouter.aiAssistant);
+                                case NotificationType.system:
+                                  break;
+                              }
+                            },
+                          ),
                         );
                       },
                     ),

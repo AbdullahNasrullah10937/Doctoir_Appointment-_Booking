@@ -6,6 +6,7 @@ import '../../../domain/entities/app_entities.dart';
 import '../../routes/app_router.dart';
 import '../../state/app_scope.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/screen_helpers.dart';
 
 class DoctorShellScreen extends StatefulWidget {
   const DoctorShellScreen({super.key});
@@ -42,15 +43,26 @@ class _DoctorShellScreenState extends State<DoctorShellScreen> {
           child: pages[appState.doctorTabIndex],
         ),
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: appState.doctorTabIndex,
-        onDestinationSelected: appState.setDoctorTab,
-        destinations: const <NavigationDestination>[
-          NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard_rounded), label: 'Dashboard'),
-          NavigationDestination(icon: Icon(Icons.schedule_outlined), selectedIcon: Icon(Icons.schedule_rounded), label: 'Schedule'),
-          NavigationDestination(icon: Icon(Icons.people_alt_outlined), selectedIcon: Icon(Icons.people_alt_rounded), label: 'Queue'),
-          NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings_rounded), label: 'Settings'),
-        ],
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          color: AppTheme.qCard,
+          border: Border(top: BorderSide(color: AppTheme.qBorder)),
+        ),
+        child: NavigationBar(
+          height: 64,
+          selectedIndex: appState.doctorTabIndex,
+          onDestinationSelected: appState.setDoctorTab,
+          backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          elevation: 0,
+          destinations: const <NavigationDestination>[
+            NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard_rounded), label: 'Dashboard'),
+            NavigationDestination(icon: Icon(Icons.schedule_outlined), selectedIcon: Icon(Icons.schedule_rounded), label: 'Schedule'),
+            NavigationDestination(icon: Icon(Icons.people_alt_outlined), selectedIcon: Icon(Icons.people_alt_rounded), label: 'Queue'),
+            NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings_rounded), label: 'Settings'),
+          ],
+        ),
       ),
     );
   }
@@ -65,6 +77,17 @@ class _DoctorDashboardTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final appState = AppScope.of(context);
     final queue = appState.doctorQueue;
+    final app = appState.currentDoctorApplication;
+
+    String name = app?.fullName ?? 'Dr. Sara Ali';
+    if (app != null && !name.toLowerCase().startsWith('dr')) {
+      name = 'Dr. $name';
+    }
+    final initials = buildInitials(name, fallback: 'DR');
+    final image = app?.profileImageUrl ?? AppAssets.doctorSara;
+    final specialty = app != null
+        ? '${app.specialization} • ${app.qualification}'
+        : 'General Physician • MBBS, FCPS';
 
     return Column(
       key: const ValueKey<String>('doc-dashboard'),
@@ -73,10 +96,10 @@ class _DoctorDashboardTab extends StatelessWidget {
         Container(
           padding: const EdgeInsets.fromLTRB(AppTheme.space4, AppTheme.space4, AppTheme.space4, AppTheme.space5),
           decoration: const BoxDecoration(
-            gradient: AppTheme.primaryGradient,
+            gradient: AppTheme.qHeaderGradient,
             borderRadius: BorderRadius.only(
-              bottomLeft: Radius.circular(AppTheme.radiusXl),
-              bottomRight: Radius.circular(AppTheme.radiusXl),
+              bottomLeft: Radius.circular(28),
+              bottomRight: Radius.circular(28),
             ),
           ),
           child: Column(
@@ -84,14 +107,14 @@ class _DoctorDashboardTab extends StatelessWidget {
             children: <Widget>[
               Row(
                 children: <Widget>[
-                  AssetCircleAvatar(imageAsset: AppAssets.doctorSara, initials: 'SA', radius: 22, borderColor: Colors.white),
+                  AssetCircleAvatar(imageAsset: image, initials: initials, radius: 22, borderColor: Colors.white),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        Text('Dr. Sara Ali', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
-                        Text('General Physician • MBBS, FCPS', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                        Text(name, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
+                        Text(specialty, style: const TextStyle(color: Colors.white70, fontSize: 12)),
                       ],
                     ),
                   ),
@@ -268,7 +291,17 @@ class _DoctorScheduleTab extends StatelessWidget {
               SecondaryActionButton(
                 label: 'Edit Schedule',
                 icon: Icons.edit_calendar_rounded,
-                onPressed: () {},
+                onPressed: () async {
+                  final newSchedule = await showModalBottomSheet<DoctorSchedule>(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (context) => _EditScheduleSheet(initialSchedule: slots),
+                  );
+                  if (newSchedule != null) {
+                    await appState.updateDoctorSchedule(newSchedule);
+                  }
+                },
               ),
             ],
           ),
@@ -368,6 +401,17 @@ class _DoctorSettingsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appState = AppScope.of(context);
+    final app = appState.currentDoctorApplication;
+
+    String name = app?.fullName ?? 'Dr. Sara Ali';
+    if (app != null && !name.toLowerCase().startsWith('dr')) {
+      name = 'Dr. $name';
+    }
+    final initials = buildInitials(name, fallback: 'DR');
+    final image = app?.profileImageUrl ?? AppAssets.doctorSara;
+    final specialty = app != null
+        ? '${app.specialization} • ${app.qualification}'
+        : 'General Physician • FCPS';
 
     return Column(
       key: const ValueKey<String>('doc-settings'),
@@ -385,11 +429,11 @@ class _DoctorSettingsTab extends StatelessWidget {
           ),
           child: Column(
             children: <Widget>[
-              AssetCircleAvatar(imageAsset: AppAssets.doctorSara, initials: 'SA', radius: 36, borderColor: Colors.white),
+              AssetCircleAvatar(imageAsset: image, initials: initials, radius: 36, borderColor: Colors.white),
               const SizedBox(height: 10),
-              const Text('Dr. Sara Ali', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 18)),
+              Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 18)),
               const SizedBox(height: 3),
-              const Text('General Physician • FCPS', style: TextStyle(color: Colors.white70, fontSize: 13)),
+              Text(specialty, style: const TextStyle(color: Colors.white70, fontSize: 13)),
             ],
           ),
         ),
@@ -485,6 +529,325 @@ class _TimeRow extends StatelessWidget {
         Text('$label: ', style: const TextStyle(color: AppTheme.textMuted, fontSize: 13)),
         Text(value, style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 13)),
       ],
+    );
+  }
+}
+
+class _EditScheduleSheet extends StatefulWidget {
+  const _EditScheduleSheet({required this.initialSchedule});
+  final DoctorSchedule initialSchedule;
+
+  @override
+  State<_EditScheduleSheet> createState() => _EditScheduleSheetState();
+}
+
+class _EditScheduleSheetState extends State<_EditScheduleSheet> {
+  late List<String> _workingDays;
+  late TimeOfDay _morningStart;
+  late TimeOfDay _morningEnd;
+  late TimeOfDay _eveningStart;
+  late TimeOfDay _eveningEnd;
+
+  final List<String> _allDays = [
+    'Mon',
+    'Tue',
+    'Wed',
+    'Thu',
+    'Fri',
+    'Sat',
+    'Sun',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _workingDays = List<String>.from(widget.initialSchedule.workingDays);
+    _morningStart = _parseTimeString(widget.initialSchedule.morningStart);
+    _morningEnd = _parseTimeString(widget.initialSchedule.morningEnd);
+    _eveningStart = _parseTimeString(widget.initialSchedule.eveningStart);
+    _eveningEnd = _parseTimeString(widget.initialSchedule.eveningEnd);
+  }
+
+  TimeOfDay _parseTimeString(String timeStr) {
+    try {
+      final clean = timeStr.trim().replaceAll(RegExp(r'\s+'), ' ');
+      final parts = clean.split(' ');
+      if (parts.length != 2) return const TimeOfDay(hour: 9, minute: 0);
+      final ampm = parts[1].toUpperCase();
+      final timeParts = parts[0].split(':');
+      var hour = int.parse(timeParts[0]);
+      final minute = int.parse(timeParts[1]);
+      if (ampm == 'PM' && hour < 12) hour += 12;
+      if (ampm == 'AM' && hour == 12) hour = 0;
+      return TimeOfDay(hour: hour, minute: minute);
+    } catch (_) {
+      return const TimeOfDay(hour: 9, minute: 0);
+    }
+  }
+
+  String _formatTimeOfDay(TimeOfDay tod) {
+    final hour = tod.hour;
+    final minute = tod.minute;
+    final ampm = hour >= 12 ? 'PM' : 'AM';
+    final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+    final displayMinute = minute.toString().padLeft(2, '0');
+    return '$displayHour:$displayMinute $ampm';
+  }
+
+  int _toMinutes(TimeOfDay tod) => tod.hour * 60 + tod.minute;
+
+  void _save() {
+    final morningStartMins = _toMinutes(_morningStart);
+    final morningEndMins = _toMinutes(_morningEnd);
+    final eveningStartMins = _toMinutes(_eveningStart);
+    final eveningEndMins = _toMinutes(_eveningEnd);
+
+    if (_workingDays.isEmpty) {
+      _showError('Please select at least one working day.');
+      return;
+    }
+    if (morningStartMins >= morningEndMins) {
+      _showError('Morning start time must be before morning end time.');
+      return;
+    }
+    if (eveningStartMins >= eveningEndMins) {
+      _showError('Evening start time must be before evening end time.');
+      return;
+    }
+    if (morningEndMins >= eveningStartMins) {
+      _showError('Morning shift must end before the evening shift starts.');
+      return;
+    }
+
+    final newSchedule = DoctorSchedule(
+      workingDays: _workingDays,
+      morningStart: _formatTimeOfDay(_morningStart),
+      morningEnd: _formatTimeOfDay(_morningEnd),
+      eveningStart: _formatTimeOfDay(_eveningStart),
+      eveningEnd: _formatTimeOfDay(_eveningEnd),
+      blockedDates: widget.initialSchedule.blockedDates,
+    );
+
+    Navigator.of(context).pop(newSchedule);
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppTheme.danger,
+      ),
+    );
+  }
+
+  Widget _buildTimeTile({
+    required String label,
+    required TimeOfDay value,
+    required VoidCallback onTap,
+    required IconData icon,
+    required Color color,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+          border: Border.all(color: AppTheme.border),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.textMuted)),
+                  const SizedBox(height: 2),
+                  Text(_formatTimeOfDay(value), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                ],
+              ),
+            ),
+            const Icon(Icons.access_time_rounded, color: AppTheme.textMuted, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppTheme.bg,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusLg)),
+      ),
+      padding: EdgeInsets.fromLTRB(
+        AppTheme.space4,
+        AppTheme.space4,
+        AppTheme.space4,
+        AppTheme.space4 + MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Handle bar
+            Center(
+              child: Container(
+                width: 38,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppTheme.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Edit Work Schedule',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 16),
+
+            // Working Days
+            const Text(
+              'Select Working Days',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _allDays.map((day) {
+                final isSelected = _workingDays.contains(day);
+                return InkWell(
+                  onTap: () {
+                    setState(() {
+                      if (isSelected) {
+                        _workingDays.remove(day);
+                      } else {
+                        _workingDays.add(day);
+                      }
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(AppTheme.radiusChip),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isSelected ? AppTheme.accentBlue : AppTheme.surface,
+                      borderRadius: BorderRadius.circular(AppTheme.radiusChip),
+                      border: Border.all(
+                        color: isSelected ? AppTheme.accentBlue : AppTheme.border,
+                      ),
+                    ),
+                    child: Text(
+                      day.substring(0, 3),
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : AppTheme.textSecondary,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 24),
+
+            // Morning Timing
+            const Text(
+              'Morning Shift (Start & End)',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildTimeTile(
+                    label: 'Start Time',
+                    value: _morningStart,
+                    onTap: () async {
+                      final time = await showTimePicker(context: context, initialTime: _morningStart);
+                      if (time != null) setState(() => _morningStart = time);
+                    },
+                    icon: Icons.wb_sunny_rounded,
+                    color: AppTheme.warning,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildTimeTile(
+                    label: 'End Time',
+                    value: _morningEnd,
+                    onTap: () async {
+                      final time = await showTimePicker(context: context, initialTime: _morningEnd);
+                      if (time != null) setState(() => _morningEnd = time);
+                    },
+                    icon: Icons.wb_sunny_rounded,
+                    color: AppTheme.warning,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // Evening Timing
+            const Text(
+              'Evening Shift (Start & End)',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildTimeTile(
+                    label: 'Start Time',
+                    value: _eveningStart,
+                    onTap: () async {
+                      final time = await showTimePicker(context: context, initialTime: _eveningStart);
+                      if (time != null) setState(() => _eveningStart = time);
+                    },
+                    icon: Icons.nights_stay_rounded,
+                    color: AppTheme.accentBlue,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildTimeTile(
+                    label: 'End Time',
+                    value: _eveningEnd,
+                    onTap: () async {
+                      final time = await showTimePicker(context: context, initialTime: _eveningEnd);
+                      if (time != null) setState(() => _eveningEnd = time);
+                    },
+                    icon: Icons.nights_stay_rounded,
+                    color: AppTheme.accentBlue,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 32),
+
+            // Action buttons
+            PrimaryActionButton(
+              label: 'Save Schedule',
+              onPressed: _save,
+            ),
+            const SizedBox(height: 8),
+            SecondaryActionButton(
+              label: 'Cancel',
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
     );
   }
 }

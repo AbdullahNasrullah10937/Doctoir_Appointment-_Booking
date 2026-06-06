@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/app_entities.dart';
@@ -25,6 +28,208 @@ class _DigitalPrescriptionScreenState extends State<DigitalPrescriptionScreen> {
     final record = widget.record ?? (appState.records.isEmpty ? null : appState.records.first);
     if (record != null) _future = appState.getPrescriptionForRecord(record);
   }
+
+  // ─── Real PDF Generation ──────────────────────────────────────────────────
+
+  Future<void> _downloadPdf(Prescription rx) async {
+    final doc = pw.Document();
+
+    doc.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(40),
+        build: (pw.Context ctx) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // ── Header ───────────────────────────────────────────────────
+              pw.Container(
+                padding: const pw.EdgeInsets.all(16),
+                decoration: const pw.BoxDecoration(
+                  color: PdfColors.blue800,
+                ),
+                child: pw.Row(
+                  children: [
+                    pw.Text(
+                      'Rx',
+                      style: pw.TextStyle(
+                        fontSize: 40,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.white,
+                        fontStyle: pw.FontStyle.italic,
+                      ),
+                    ),
+                    pw.SizedBox(width: 16),
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          'Qurexa Digital Prescription',
+                          style: pw.TextStyle(
+                            color: PdfColors.white,
+                            fontWeight: pw.FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        pw.Text(
+                          _formatDate(rx.date),
+                          style: pw.TextStyle(color: PdfColors.grey300, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              pw.SizedBox(height: 20),
+
+              // ── Patient & Doctor Info ────────────────────────────────────
+              pw.Container(
+                padding: const pw.EdgeInsets.all(14),
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(color: PdfColors.blue200),
+                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                ),
+                child: pw.Column(
+                  children: [
+                    _rxInfoRow('Doctor', rx.doctorName),
+                    pw.SizedBox(height: 6),
+                    _rxInfoRow('Patient', rx.patientName),
+                    pw.SizedBox(height: 6),
+                    _rxInfoRow('Diagnosis', rx.diagnosis),
+                  ],
+                ),
+              ),
+              pw.SizedBox(height: 20),
+
+              // ── Medicines ────────────────────────────────────────────────
+              pw.Text(
+                'PRESCRIBED MEDICATIONS',
+                style: pw.TextStyle(
+                  fontWeight: pw.FontWeight.bold,
+                  fontSize: 12,
+                  color: PdfColors.blue800,
+                ),
+              ),
+              pw.SizedBox(height: 8),
+              pw.Table(
+                border: pw.TableBorder.all(color: PdfColors.blue100),
+                columnWidths: const {
+                  0: pw.FlexColumnWidth(3),
+                  1: pw.FlexColumnWidth(2),
+                  2: pw.FlexColumnWidth(3),
+                  3: pw.FlexColumnWidth(2),
+                },
+                children: [
+                  pw.TableRow(
+                    decoration: const pw.BoxDecoration(color: PdfColors.blue800),
+                    children: [
+                      _tableHeader('Medicine'),
+                      _tableHeader('Dose'),
+                      _tableHeader('Frequency'),
+                      _tableHeader('Duration'),
+                    ],
+                  ),
+                  ...rx.medicines.map(
+                    (m) => pw.TableRow(
+                      children: [
+                        _tableCell(m.name),
+                        _tableCell(m.dose.isNotEmpty ? m.dose : '—'),
+                        _tableCell(m.frequency.isNotEmpty ? m.frequency : '—'),
+                        _tableCell(m.duration.isNotEmpty ? m.duration : '—'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              if (rx.notes.isNotEmpty) ...[
+                pw.SizedBox(height: 20),
+                pw.Text(
+                  'DOCTOR\'S NOTES',
+                  style: pw.TextStyle(
+                    fontWeight: pw.FontWeight.bold,
+                    fontSize: 12,
+                    color: PdfColors.blue800,
+                  ),
+                ),
+                pw.SizedBox(height: 8),
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(12),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColors.grey100,
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                  ),
+                  child: pw.Text(rx.notes, style: const pw.TextStyle(fontSize: 11)),
+                ),
+              ],
+
+              pw.Spacer(),
+
+              // ── Footer ───────────────────────────────────────────────────
+              pw.Divider(color: PdfColors.blue200),
+              pw.Text(
+                'Generated by Qurexa — Digital Health Platform | ${_formatDate(DateTime.now())}',
+                style: const pw.TextStyle(color: PdfColors.grey600, fontSize: 9),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    await Printing.sharePdf(
+      bytes: await doc.save(),
+      filename: 'prescription_${rx.patientName.replaceAll(' ', '_')}_${_formatDate(rx.date)}.pdf',
+    );
+  }
+
+  pw.Widget _rxInfoRow(String label, String value) {
+    return pw.Row(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.SizedBox(
+          width: 80,
+          child: pw.Text(
+            '$label:',
+            style: pw.TextStyle(color: PdfColors.grey700, fontSize: 11),
+          ),
+        ),
+        pw.Expanded(
+          child: pw.Text(
+            value,
+            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11),
+          ),
+        ),
+      ],
+    );
+  }
+
+  pw.Widget _tableHeader(String text) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: pw.Text(
+        text,
+        style: pw.TextStyle(
+          color: PdfColors.white,
+          fontWeight: pw.FontWeight.bold,
+          fontSize: 10,
+        ),
+      ),
+    );
+  }
+
+  pw.Widget _tableCell(String text) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: pw.Text(text, style: const pw.TextStyle(fontSize: 10)),
+    );
+  }
+
+  String _formatDate(DateTime dt) {
+    return '${dt.day}/${dt.month}/${dt.year}';
+  }
+
+  // ─── Build ────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -128,8 +333,13 @@ class _DigitalPrescriptionScreenState extends State<DigitalPrescriptionScreen> {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: <Widget>[
                                         Text(med.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-                                        Text('${med.dose} • ${med.frequency} • ${med.duration}',
-                                          style: const TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+                                        if (med.dose.isNotEmpty || med.frequency.isNotEmpty)
+                                          Text(
+                                            [med.dose, med.frequency, med.duration]
+                                                .where((s) => s.isNotEmpty)
+                                                .join(' • '),
+                                            style: const TextStyle(color: AppTheme.textMuted, fontSize: 12),
+                                          ),
                                       ],
                                     ),
                                   ),
@@ -153,9 +363,7 @@ class _DigitalPrescriptionScreenState extends State<DigitalPrescriptionScreen> {
                             SecondaryActionButton(
                               label: 'Download PDF',
                               icon: Icons.download_rounded,
-                              onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Prescription PDF downloaded (mock).')),
-                              ),
+                              onPressed: () => _downloadPdf(rx),
                             ),
                           ],
                         );

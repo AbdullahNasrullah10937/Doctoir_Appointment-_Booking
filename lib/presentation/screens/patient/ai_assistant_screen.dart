@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../routes/app_router.dart';
@@ -266,10 +267,21 @@ class _AiHealthAssistantScreenState extends State<AiHealthAssistantScreen> {
                       children: [
                         Expanded(
                           child: ElevatedButton.icon(
-                            onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Dialing Rescue 1122 (Mock)...')),
-                              );
+                            onPressed: () async {
+                              final uri = Uri(scheme: 'tel', path: '1122');
+                              try {
+                                if (await canLaunchUrl(uri)) {
+                                  await launchUrl(uri);
+                                } else {
+                                  throw 'Could not launch dialer';
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Could not open phone dialer: $e')),
+                                  );
+                                }
+                              }
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppTheme.danger,
@@ -283,10 +295,21 @@ class _AiHealthAssistantScreenState extends State<AiHealthAssistantScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: OutlinedButton.icon(
-                            onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Dialing Police 15 (Mock)...')),
-                              );
+                            onPressed: () async {
+                              final uri = Uri(scheme: 'tel', path: '15');
+                              try {
+                                if (await canLaunchUrl(uri)) {
+                                  await launchUrl(uri);
+                                } else {
+                                  throw 'Could not launch dialer';
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Could not open phone dialer: $e')),
+                                  );
+                                }
+                              }
                             },
                             style: OutlinedButton.styleFrom(
                               side: const BorderSide(color: AppTheme.danger),

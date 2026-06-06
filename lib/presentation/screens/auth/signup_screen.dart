@@ -75,6 +75,12 @@ class _SignupScreenState extends State<SignupScreen> {
       return;
     }
 
+    // Doctors go through the dedicated multi-step verification signup flow.
+    if (_selectedRole == UserRole.doctor) {
+      Navigator.of(context).pushNamed(AppRouter.doctorSignup);
+      return;
+    }
+
     setState(() => _isSubmitting = true);
     final email = _emailController.text.trim();
     final password = _passwordController.text;
@@ -88,11 +94,7 @@ class _SignupScreenState extends State<SignupScreen> {
       );
       if (!mounted) return;
       appState.completeOnboarding();
-      if (appState.role == UserRole.doctor) {
-        Navigator.of(context).pushReplacementNamed(AppRouter.doctorShell);
-      } else {
-        Navigator.of(context).pushReplacementNamed(AppRouter.profileSetup);
-      }
+      Navigator.of(context).pushReplacementNamed(AppRouter.profileSetup);
     } catch (error) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);

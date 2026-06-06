@@ -1,4 +1,4 @@
-enum UserRole { patient, doctor }
+enum UserRole { patient, doctor, admin }
 
 enum AppointmentStatus { upcoming, pending, completed, cancelled }
 
@@ -143,6 +143,7 @@ class QueueSnapshot {
     required this.currentToken,
     required this.patientsAhead,
     required this.estimatedWaitMinutes,
+    this.doctorId,
   });
 
   final String doctorName;
@@ -152,10 +153,16 @@ class QueueSnapshot {
   final int patientsAhead;
   final int estimatedWaitMinutes;
 
+  /// Firebase UID of the doctor who owns the queue slot.
+  /// Used by atomic writes to reference /doctors/$doctorId/queue when
+  /// clearing the case after prescription dispatch.
+  final String? doctorId;
+
   QueueSnapshot copyWith({
     int? currentToken,
     int? patientsAhead,
     int? estimatedWaitMinutes,
+    String? doctorId,
   }) {
     return QueueSnapshot(
       doctorName: doctorName,
@@ -164,6 +171,7 @@ class QueueSnapshot {
       currentToken: currentToken ?? this.currentToken,
       patientsAhead: patientsAhead ?? this.patientsAhead,
       estimatedWaitMinutes: estimatedWaitMinutes ?? this.estimatedWaitMinutes,
+      doctorId: doctorId ?? this.doctorId,
     );
   }
 }
@@ -312,6 +320,7 @@ class DoctorSchedule {
     required this.morningEnd,
     required this.eveningStart,
     required this.eveningEnd,
+    this.blockedDates = const <String>[],
   });
 
   final List<String> workingDays;
@@ -319,6 +328,18 @@ class DoctorSchedule {
   final String morningEnd;
   final String eveningStart;
   final String eveningEnd;
+  final List<String> blockedDates;
+
+  static DoctorSchedule fallback(String doctorUid) {
+    return const DoctorSchedule(
+      workingDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+      morningStart: '9:00 AM',
+      morningEnd: '1:00 PM',
+      eveningStart: '5:00 PM',
+      eveningEnd: '9:00 PM',
+      blockedDates: [],
+    );
+  }
 
   DoctorSchedule copyWith({
     List<String>? workingDays,
@@ -326,6 +347,7 @@ class DoctorSchedule {
     String? morningEnd,
     String? eveningStart,
     String? eveningEnd,
+    List<String>? blockedDates,
   }) {
     return DoctorSchedule(
       workingDays: workingDays ?? this.workingDays,
@@ -333,6 +355,7 @@ class DoctorSchedule {
       morningEnd: morningEnd ?? this.morningEnd,
       eveningStart: eveningStart ?? this.eveningStart,
       eveningEnd: eveningEnd ?? this.eveningEnd,
+      blockedDates: blockedDates ?? this.blockedDates,
     );
   }
 }

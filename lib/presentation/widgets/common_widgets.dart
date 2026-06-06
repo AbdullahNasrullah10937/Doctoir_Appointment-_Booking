@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
 
@@ -33,8 +35,8 @@ class MediQCard extends StatelessWidget {
   const MediQCard({
     super.key,
     required this.child,
-    this.padding = const EdgeInsets.all(AppTheme.space3),
-    this.margin = const EdgeInsets.only(bottom: AppTheme.space3),
+    this.padding = const EdgeInsets.all(16),
+    this.margin = const EdgeInsets.only(bottom: 12),
     this.onTap,
     this.color,
     this.borderColor,
@@ -54,18 +56,20 @@ class MediQCard extends StatelessWidget {
     return Container(
       margin: margin,
       decoration: BoxDecoration(
-        color: gradient == null ? (color ?? Theme.of(context).cardColor) : null,
+        color: gradient == null ? (color ?? AppTheme.qCard) : null,
         gradient: gradient,
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-        border: Border.all(color: borderColor ?? AppTheme.border),
+        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+        border: Border.all(color: borderColor ?? AppTheme.qBorder),
         boxShadow: AppTheme.cardShadow,
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
         child: InkWell(
-          borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+          borderRadius: BorderRadius.circular(AppTheme.radiusCard),
           onTap: onTap,
+          splashColor: AppTheme.qPrimaryLight,
+          highlightColor: AppTheme.qPrimaryLight.withValues(alpha: 0.5),
           child: Padding(padding: padding, child: child),
         ),
       ),
@@ -93,11 +97,11 @@ class GradientHeaderCard extends StatelessWidget {
       margin: margin,
       padding: const EdgeInsets.all(AppTheme.space4),
       decoration: BoxDecoration(
-        gradient: AppTheme.primaryGradient,
+        gradient: AppTheme.qHeaderGradient,
         borderRadius: BorderRadius.circular(AppTheme.radiusXl),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.accentBlue.withValues(alpha: 0.3),
+            color: AppTheme.qPrimary.withValues(alpha: 0.25),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -121,14 +125,16 @@ class SectionHeading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: AppTheme.space2),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: <Widget>[
           Text(
             title,
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.qText,
+            ),
           ),
           const Spacer(),
           ?trailing,
@@ -153,15 +159,15 @@ class StatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
       child: Text(
         label,
-        style: TextStyle(
+        style: GoogleFonts.dmSans(
           color: color,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
           fontSize: 12,
         ),
       ),
@@ -185,28 +191,28 @@ class InfoMetricBox extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         decoration: BoxDecoration(
-          color: AppTheme.primarySoft,
+          color: AppTheme.qPrimaryLight,
           borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-          border: Border.all(color: AppTheme.border),
+          border: Border.all(color: AppTheme.qBorder),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             Text(
               value,
-              style: const TextStyle(
+              style: GoogleFonts.plusJakartaSans(
                 fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: AppTheme.accentBlue,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.qPrimary,
               ),
             ),
             const SizedBox(height: 3),
             Text(
               label,
-              style: const TextStyle(
-                color: AppTheme.textMuted,
+              style: GoogleFonts.dmSans(
+                color: AppTheme.qTextSec,
                 fontSize: 11,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
               ),
               textAlign: TextAlign.center,
               maxLines: 1,
@@ -228,7 +234,7 @@ class MetricTile extends StatelessWidget {
     super.key,
     required this.label,
     required this.value,
-    this.valueColor = AppTheme.accentBlue,
+    this.valueColor = AppTheme.qCard,
   });
 
   final String label;
@@ -249,16 +255,16 @@ class MetricTile extends StatelessWidget {
         children: <Widget>[
           Text(
             value,
-            style: TextStyle(
+            style: GoogleFonts.plusJakartaSans(
               fontSize: 22,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
               color: valueColor,
             ),
           ),
           const SizedBox(height: 2),
           Text(
             label,
-            style: const TextStyle(color: Colors.white70, fontSize: 11),
+            style: GoogleFonts.dmSans(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w500),
           ),
         ],
       ),
@@ -287,11 +293,11 @@ class CreditCardWidget extends StatelessWidget {
     return Container(
       height: 180,
       decoration: BoxDecoration(
-        gradient: AppTheme.primaryGradient,
+        gradient: AppTheme.qHeaderGradient,
         borderRadius: BorderRadius.circular(AppTheme.radiusXl),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.accentBlue.withValues(alpha: 0.35),
+            color: AppTheme.qPrimary.withValues(alpha: 0.30),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -304,9 +310,9 @@ class CreditCardWidget extends StatelessWidget {
           children: <Widget>[
             Row(
               children: <Widget>[
-                const Text(
+                Text(
                   'Current Balance',
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                  style: GoogleFonts.dmSans(color: Colors.white70, fontSize: 12),
                 ),
                 const Spacer(),
                 Container(
@@ -315,11 +321,11 @@ class CreditCardWidget extends StatelessWidget {
                     color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: const Text(
+                  child: Text(
                     'VISA',
-                    style: TextStyle(
+                    style: GoogleFonts.dmSans(
                       color: Colors.white,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       fontSize: 13,
                       letterSpacing: 1,
                     ),
@@ -330,10 +336,10 @@ class CreditCardWidget extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               balance,
-              style: const TextStyle(
+              style: GoogleFonts.plusJakartaSans(
                 color: Colors.white,
                 fontSize: 28,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
                 letterSpacing: -0.5,
               ),
             ),
@@ -342,16 +348,12 @@ class CreditCardWidget extends StatelessWidget {
               children: <Widget>[
                 Text(
                   '•••• •••• •••• $last4',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 13,
-                    letterSpacing: 2,
-                  ),
+                  style: GoogleFonts.dmSans(color: Colors.white70, fontSize: 13, letterSpacing: 2),
                 ),
                 const Spacer(),
                 Text(
                   expiry,
-                  style: const TextStyle(color: Colors.white70, fontSize: 13),
+                  style: GoogleFonts.dmSans(color: Colors.white70, fontSize: 13),
                 ),
               ],
             ),
@@ -386,17 +388,13 @@ class PaymentMethodRow extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        margin: const EdgeInsets.only(bottom: AppTheme.space2),
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppTheme.space4,
-          vertical: 14,
-        ),
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color:
-              selected ? AppTheme.primarySoft : Theme.of(context).cardColor,
+          color: selected ? AppTheme.qPrimaryLight : AppTheme.qCard,
           borderRadius: BorderRadius.circular(AppTheme.radiusMd),
           border: Border.all(
-            color: selected ? AppTheme.accentBlue : AppTheme.border,
+            color: selected ? AppTheme.qPrimary : AppTheme.qBorder,
             width: selected ? 1.5 : 1,
           ),
         ),
@@ -409,20 +407,19 @@ class PaymentMethodRow extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: selected ? AppTheme.accentBlue : AppTheme.border,
+                  color: selected ? AppTheme.qPrimary : AppTheme.qBorder,
                   width: selected ? 6 : 2,
                 ),
               ),
             ),
-            const SizedBox(width: AppTheme.space3),
-            Icon(icon, color: AppTheme.textSecondary, size: 20),
-            const SizedBox(width: AppTheme.space2),
+            const SizedBox(width: 12),
+            Icon(icon, color: AppTheme.qTextSec, size: 20),
+            const SizedBox(width: 8),
             Text(
               name,
-              style: TextStyle(
+              style: GoogleFonts.dmSans(
                 fontWeight: FontWeight.w600,
-                color:
-                    selected ? AppTheme.accentBlue : AppTheme.textPrimary,
+                color: selected ? AppTheme.qPrimary : AppTheme.qText,
               ),
             ),
           ],
@@ -454,17 +451,14 @@ class PrimaryActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      height: 52,
+      height: 54,
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
         child: isLoading
             ? const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
               )
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -474,7 +468,10 @@ class PrimaryActionButton extends StatelessWidget {
                     Icon(icon, size: 18),
                     const SizedBox(width: 8),
                   ],
-                  Text(label),
+                  Text(
+                    label,
+                    style: GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
+                  ),
                 ],
               ),
       ),
@@ -500,7 +497,7 @@ class SecondaryActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      height: 52,
+      height: 54,
       child: OutlinedButton(
         onPressed: onPressed,
         child: Row(
@@ -514,7 +511,10 @@ class SecondaryActionButton extends StatelessWidget {
               Icon(icon, size: 18),
               const SizedBox(width: 8),
             ],
-            Text(label),
+            Text(
+              label,
+              style: GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.w600, color: AppTheme.qPrimary),
+            ),
           ],
         ),
       ),
@@ -534,22 +534,10 @@ class BottomActionBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(
-        AppTheme.space4,
-        AppTheme.space3,
-        AppTheme.space4,
-        AppTheme.space4,
-      ),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        border: const Border(top: BorderSide(color: AppTheme.border)),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.shadow,
-            blurRadius: 16,
-            offset: const Offset(0, -4),
-          ),
-        ],
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+      decoration: const BoxDecoration(
+        color: AppTheme.qCard,
+        border: Border(top: BorderSide(color: AppTheme.qBorder)),
       ),
       child: Row(children: children),
     );
@@ -583,11 +571,11 @@ class AssetCircleAvatar extends StatelessWidget {
         shape: BoxShape.circle,
         border: borderColor != null
             ? Border.all(color: borderColor!, width: 2)
-            : null,
+            : Border.all(color: AppTheme.qPrimary, width: 2),
       ),
       child: CircleAvatar(
         radius: radius,
-        backgroundColor: AppTheme.primarySoft,
+        backgroundColor: AppTheme.qPrimaryLight,
         child: ClipOval(
           child: SizedBox(
             width: radius * 2,
@@ -607,15 +595,30 @@ class AssetCircleAvatar extends StatelessWidget {
                         ),
                         errorWidget: (BuildContext context, String url, dynamic error) => _fallback(),
                       )
-                    : Image.asset(
-                        imageAsset!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => _fallback(),
-                      )),
+                    : (imageAsset!.startsWith('assets/')
+                        ? Image.asset(
+                            imageAsset!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => _fallback(),
+                          )
+                        : _buildBase64Image(imageAsset!))),
           ),
         ),
       ),
     );
+  }
+
+  Widget _buildBase64Image(String data) {
+    try {
+      final bytes = base64Decode(data);
+      return Image.memory(
+        bytes,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => _fallback(),
+      );
+    } catch (_) {
+      return _fallback();
+    }
   }
 
   Widget _fallback() {
@@ -623,11 +626,11 @@ class AssetCircleAvatar extends StatelessWidget {
       width: radius * 2,
       height: radius * 2,
       alignment: Alignment.center,
-      color: AppTheme.primarySoft,
+      color: AppTheme.qPrimaryLight,
       child: Text(
         initials,
-        style: TextStyle(
-          color: AppTheme.accentBlue,
+        style: GoogleFonts.plusJakartaSans(
+          color: AppTheme.qPrimary,
           fontWeight: FontWeight.w700,
           fontSize: radius * 0.52,
         ),
@@ -659,26 +662,35 @@ class QuickActionTile extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+        height: 88,
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-          border: Border.all(color: color.withValues(alpha: 0.22)),
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withValues(alpha: 0.18)),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: MainAxisSize.max,
           children: <Widget>[
-            Icon(icon, color: color, size: 26),
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 22),
+            ),
             const SizedBox(height: 6),
             Text(
               label,
               textAlign: TextAlign.center,
-              maxLines: 2,
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
+              style: GoogleFonts.dmSans(
                 color: color,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
                 fontSize: 11,
                 height: 1.2,
               ),
@@ -714,37 +726,33 @@ class EmptyStateView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(AppTheme.space6),
+        padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: AppTheme.primarySoft,
+              width: 80,
+              height: 80,
+              decoration: const BoxDecoration(
+                color: AppTheme.qPrimaryLight,
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, size: 36, color: AppTheme.accentBlue),
+              child: Icon(icon, size: 38, color: AppTheme.qPrimary),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             Text(
               title,
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, fontSize: 17, color: AppTheme.qText),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: AppTheme.textMuted,
-                fontSize: 13,
-                height: 1.5,
-              ),
+              style: GoogleFonts.dmSans(color: AppTheme.qTextSec, fontSize: 14, height: 1.5),
             ),
             if (actionLabel != null && onAction != null) ...<Widget>[
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
               PrimaryActionButton(label: actionLabel!, onPressed: onAction),
             ],
           ],
@@ -781,7 +789,7 @@ class PageDotIndicator extends StatelessWidget {
           width: isActive ? 24 : 8,
           height: 8,
           decoration: BoxDecoration(
-            color: isActive ? AppTheme.accentBlue : AppTheme.border,
+            color: isActive ? AppTheme.qPrimary : AppTheme.qBorder,
             borderRadius: BorderRadius.circular(10),
           ),
         );
@@ -819,3 +827,5 @@ String formatTime(DateTime value) {
   final hour12 = hour24 % 12 == 0 ? 12 : hour24 % 12;
   return '$hour12:$minute $period';
 }
+
+
