@@ -1,23 +1,4 @@
-import '../entities/app_entities.dart';
-
-abstract class AppRepository {
-  Future<List<Doctor>> getDoctors();
-
-  Future<List<Appointment>> getAppointments();
-
-  Future<List<HealthRecord>> getHealthRecords();
-
-  Future<List<MedicationReminder>> getMedicationReminders();
-
-  Future<List<AppNotification>> getNotifications();
-
-  Future<List<PatientCase>> getDoctorQueue();
-
-  Future<DoctorSchedule> getDoctorSchedule();
-
-  Future<QueueSnapshot> getQueueSnapshot();
-
-  List<String> suggestSpecialists(String symptoms);
-
-  Future<Prescription> getPrescriptionForRecord(HealthRecord record);
-}
+// ABSTRACT REPOSITORY INTERFACE REMOVED.
+// This file intentionally left as an empty stub.
+// All data is delivered through Firebase real-time stream subscriptions
+// managed directly by AppState._startRealtimeListeners().

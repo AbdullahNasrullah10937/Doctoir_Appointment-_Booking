@@ -35,7 +35,6 @@ const AndroidNotificationChannel _reminderChannel = AndroidNotificationChannel(
   'Medication Reminders',
   description: 'Daily medication dose reminders.',
   importance: Importance.max,
-  sound: RawResourceAndroidNotificationSound('notification_sound'),
   playSound: true,
 );
 
@@ -289,6 +288,9 @@ class NotificationService {
               channelDescription: _reminderChannel.description,
               importance: Importance.max,
               priority: Priority.max,
+              playSound: true,
+              category: AndroidNotificationCategory.alarm,
+              audioAttributesUsage: AudioAttributesUsage.alarm,
               icon: '@mipmap/ic_launcher',
             ),
             iOS: const DarwinNotificationDetails(

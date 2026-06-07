@@ -1,7 +1,76 @@
 import 'package:dio/dio.dart';
+import 'package:firebase_performance/firebase_performance.dart';
 import 'package:flutter/foundation.dart';
 
 import '../config/ai_config.dart';
+
+// ─── HTTP Performance Monitoring Interceptor ───────────────────────────────────
+
+class _PerformanceInterceptor extends Interceptor {
+  final Map<int, HttpMetric> _metrics = {};
+
+  @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
+    try {
+      final metric = FirebasePerformance.instance.newHttpMetric(
+        options.uri.toString(),
+        _mapHttpMethod(options.method),
+      );
+      await metric.start();
+      _metrics[options.hashCode] = metric;
+    } catch (_) {}
+    handler.next(options);
+  }
+
+  @override
+  void onResponse(Response<dynamic> response, ResponseInterceptorHandler handler) async {
+    try {
+      final metric = _metrics.remove(response.requestOptions.hashCode);
+      if (metric != null) {
+        metric.httpResponseCode = response.statusCode;
+        final responseBody = response.data;
+        if (responseBody != null) {
+          metric.responsePayloadSize = responseBody.toString().length;
+        }
+        await metric.stop();
+      }
+    } catch (_) {}
+    handler.next(response);
+  }
+
+  @override
+  void onError(DioException err, ErrorInterceptorHandler handler) async {
+    try {
+      final metric = _metrics.remove(err.requestOptions.hashCode);
+      if (metric != null) {
+        metric.httpResponseCode = err.response?.statusCode;
+        await metric.stop();
+      }
+    } catch (_) {}
+    handler.next(err);
+  }
+
+  HttpMethod _mapHttpMethod(String method) {
+    switch (method.toUpperCase()) {
+      case 'GET':
+        return HttpMethod.Get;
+      case 'POST':
+        return HttpMethod.Post;
+      case 'PUT':
+        return HttpMethod.Put;
+      case 'DELETE':
+        return HttpMethod.Delete;
+      case 'PATCH':
+        return HttpMethod.Patch;
+      case 'HEAD':
+        return HttpMethod.Head;
+      case 'OPTIONS':
+        return HttpMethod.Options;
+      default:
+        return HttpMethod.Get;
+    }
+  }
+}
 
 // ─── Typed AI Exceptions ───────────────────────────────────────────────────────
 
@@ -187,7 +256,10 @@ class ApiClient {
       ),
     );
 
-    // 1. Auth interceptor — injects Bearer token into every request
+    // 1. Performance interceptor — logs HTTP metric latency to Firebase
+    dio.interceptors.add(_PerformanceInterceptor());
+
+    // 2. Auth interceptor — injects Bearer token into every request
     dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) {
@@ -198,10 +270,10 @@ class ApiClient {
       ),
     );
 
-    // 2. Logging interceptor — debug builds only
+    // 3. Logging interceptor — debug builds only
     dio.interceptors.add(_LoggingInterceptor());
 
-    // 3. Retry interceptor — must be added AFTER logging
+    // 4. Retry interceptor — must be added AFTER logging
     dio.interceptors.add(_RetryInterceptor(dio: dio, maxRetries: maxRetries));
 
     return dio;

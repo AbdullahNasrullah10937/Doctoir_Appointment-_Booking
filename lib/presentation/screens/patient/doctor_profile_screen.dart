@@ -95,7 +95,7 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen>
                       children: <Widget>[
                         // Avatar
                         AssetCircleAvatar(
-                          imageAsset: doctor.imageAsset,
+                          imageAsset: doctor.imageUrl,
                           initials:
                               buildInitials(doctor.name, fallback: 'DR'),
                           radius: 48,

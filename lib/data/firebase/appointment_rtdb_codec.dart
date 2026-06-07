@@ -30,7 +30,7 @@ class AppointmentRtdbCodec {
       'doctorGender': appointment.doctor.gender,
       'doctorDistanceKm': appointment.doctor.distanceKm,
       'doctorIsAvailableToday': appointment.doctor.isAvailableToday,
-      'doctorImageAsset': appointment.doctor.imageAsset,
+      'doctorImageUrl': appointment.doctor.imageUrl,
       'doctorReviews': appointment.doctor.reviews
           .map(
             (DoctorReview review) => <String, dynamic>{
@@ -94,11 +94,10 @@ class AppointmentRtdbCodec {
         distanceKm:
             _asDouble(raw['doctorDistanceKm'], fallback: 1).clamp(0, 9999),
         isAvailableToday: raw['doctorIsAvailableToday'] == true,
-        imageAsset:
-            raw['doctorImageAsset'] is String &&
-                    '${raw['doctorImageAsset']}'.isNotEmpty
-                ? '${raw['doctorImageAsset']}'
-                : null,
+        imageUrl: (raw['doctorImageUrl'] ?? raw['doctorImageAsset']) is String &&
+                '${raw['doctorImageUrl'] ?? raw['doctorImageAsset']}'.isNotEmpty
+            ? '${raw['doctorImageUrl'] ?? raw['doctorImageAsset']}'
+            : null,
         reviews: reviews,
       );
     }

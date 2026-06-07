@@ -15,13 +15,66 @@ class DoctorWritePrescriptionScreen extends StatefulWidget {
   State<DoctorWritePrescriptionScreen> createState() => _DoctorWritePrescriptionScreenState();
 }
 
+const List<String> _frequencies = <String>[
+  'Once daily',
+  'Twice daily',
+  'Three times daily',
+  'Four times daily',
+  'Every 12 hours',
+  'Every 8 hours',
+  'Every 6 hours',
+];
+
+const List<String> _durations = <String>[
+  '1 day',
+  '2 days',
+  '3 days',
+  '5 days',
+  '7 days',
+  '10 days',
+  '14 days',
+  '30 days',
+];
+
+List<String> _getScheduledTimes(String frequency) {
+  switch (frequency) {
+    case 'Once daily':
+      return const <String>['9:00 AM'];
+    case 'Twice daily':
+    case 'Every 12 hours':
+      return const <String>['9:00 AM', '9:00 PM'];
+    case 'Three times daily':
+    case 'Every 8 hours':
+      return const <String>['9:00 AM', '3:00 PM', '9:00 PM'];
+    case 'Four times daily':
+    case 'Every 6 hours':
+      return const <String>['6:00 AM', '12:00 PM', '6:00 PM', '12:00 AM'];
+    default:
+      return const <String>['9:00 AM', '9:00 PM'];
+  }
+}
+
+int _getDurationDays(String duration) {
+  final Map<String, int> durationMap = <String, int>{
+    '1 day': 1,
+    '2 days': 2,
+    '3 days': 3,
+    '5 days': 5,
+    '7 days': 7,
+    '10 days': 10,
+    '14 days': 14,
+    '30 days': 30,
+  };
+  return durationMap[duration] ?? 5;
+}
+
 class _DoctorWritePrescriptionScreenState extends State<DoctorWritePrescriptionScreen> {
   final List<MedicineInputRow> _rows = <MedicineInputRow>[
     MedicineInputRow(
       medicineController: TextEditingController(text: 'Paracetamol'),
       doseController: TextEditingController(text: '500mg'),
-      frequencyController: TextEditingController(text: '3x daily'),
-      durationController: TextEditingController(text: '5 days'),
+      frequency: 'Twice daily',
+      duration: '5 days',
     ),
   ];
   final TextEditingController _diagnosisController = TextEditingController(text: 'Viral Fever');
@@ -42,8 +95,8 @@ class _DoctorWritePrescriptionScreenState extends State<DoctorWritePrescriptionS
       _rows.add(MedicineInputRow(
         medicineController: TextEditingController(),
         doseController: TextEditingController(),
-        frequencyController: TextEditingController(),
-        durationController: TextEditingController(),
+        frequency: 'Twice daily',
+        duration: '5 days',
       ));
     });
   }
@@ -59,8 +112,10 @@ class _DoctorWritePrescriptionScreenState extends State<DoctorWritePrescriptionS
         .map((r) => PrescriptionMedicine(
           name: r.medicineController.text.trim(),
           dose: r.doseController.text.trim().isEmpty ? 'N/A' : r.doseController.text.trim(),
-          frequency: r.frequencyController.text.trim().isEmpty ? 'N/A' : r.frequencyController.text.trim(),
-          duration: r.durationController.text.trim().isEmpty ? 'N/A' : r.durationController.text.trim(),
+          frequency: r.frequency,
+          duration: r.duration,
+          scheduledTimes: _getScheduledTimes(r.frequency),
+          durationDays: _getDurationDays(r.duration),
         ))
         .toList();
 
@@ -186,15 +241,50 @@ class _DoctorWritePrescriptionScreenState extends State<DoctorWritePrescriptionS
                           const SizedBox(height: 8),
                           Row(
                             children: <Widget>[
-                              Expanded(child: TextField(controller: row.doseController, decoration: const InputDecoration(labelText: 'Dose', hintText: '500mg'))),
+                              Expanded(
+                                child: TextField(
+                                  controller: row.doseController,
+                                  decoration: const InputDecoration(labelText: 'Dose', hintText: '500mg'),
+                                ),
+                              ),
                               const SizedBox(width: 8),
-                              Expanded(child: TextField(controller: row.frequencyController, decoration: const InputDecoration(labelText: 'Frequency', hintText: '3x daily'))),
+                              Expanded(
+                                child: DropdownButtonFormField<String>(
+                                  initialValue: row.frequency,
+                                  decoration: const InputDecoration(labelText: 'Frequency'),
+                                  items: _frequencies
+                                      .map((f) => DropdownMenuItem<String>(
+                                            value: f,
+                                            child: Text(f, style: const TextStyle(fontSize: 13)),
+                                          ))
+                                      .toList(),
+                                  onChanged: (val) {
+                                    if (val != null) {
+                                      setState(() => row.frequency = val);
+                                    }
+                                  },
+                                ),
+                              ),
                             ],
                           ),
                           const SizedBox(height: 8),
-                          TextField(
-                            controller: row.durationController,
-                            decoration: const InputDecoration(labelText: 'Duration', hintText: '5 days', prefixIcon: Icon(Icons.calendar_today_rounded)),
+                          DropdownButtonFormField<String>(
+                            initialValue: row.duration,
+                            decoration: const InputDecoration(
+                              labelText: 'Duration',
+                              prefixIcon: Icon(Icons.calendar_today_rounded),
+                            ),
+                            items: _durations
+                                .map((d) => DropdownMenuItem<String>(
+                                      value: d,
+                                      child: Text(d, style: const TextStyle(fontSize: 13)),
+                                    ))
+                                .toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() => row.duration = val);
+                              }
+                            },
                           ),
                         ],
                       ),

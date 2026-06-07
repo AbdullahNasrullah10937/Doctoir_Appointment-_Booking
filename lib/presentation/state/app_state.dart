@@ -16,18 +16,12 @@ import '../../data/firebase/app_rtdb_codecs.dart';
 import '../../data/firebase/appointment_rtdb_codec.dart';
 import '../../data/firebase/doctor_application_sync.dart';
 import '../../data/firebase/patient_cloud_sync.dart';
-import '../../data/repositories/mock_app_repository.dart';
 import '../../domain/entities/app_entities.dart';
 import '../../domain/entities/doctor_application.dart';
 import '../../domain/entities/role_mismatch_exception.dart';
-import '../../domain/repositories/app_repository.dart';
 import '../widgets/screen_helpers.dart';
 
 class AppState extends ChangeNotifier {
-  AppState({AppRepository? repository})
-    : _repository = repository ?? MockAppRepository();
-
-  final AppRepository _repository;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseDatabase _db = FirebaseDatabase.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
@@ -62,6 +56,7 @@ class AppState extends ChangeNotifier {
   StreamSubscription<List<PatientCase>>? _doctorQueueSub;
   StreamSubscription<DoctorSchedule?>? _doctorScheduleSub;
   StreamSubscription<List<DoctorApplication>>? _adminApplicationsSub;
+  StreamSubscription<DatabaseEvent>? _doctorMetaSub;
 
   final AiService _aiService = AiService();
 
@@ -94,7 +89,7 @@ class AppState extends ChangeNotifier {
   bool profileCompleted = false;
 
   bool _appDataLoaded = false;
-  bool _loadingAppData = false;
+  final bool _loadingAppData = false;
 
   bool get appDataLoaded => _appDataLoaded;
   bool get loadingAppData => _loadingAppData;
@@ -189,48 +184,13 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// All real-time data arrives via Firebase stream subscriptions started in
+  /// [_startRealtimeListeners()]. This method exists only so that legacy call
+  /// sites (patient/doctor shell screens) compile without modification.
+  /// It is a no-op — no mock data is ever loaded.
   Future<void> loadAppData() async {
-    // When Firebase is enabled all data arrives via real-time listeners started
-    // in _startRealtimeListeners(). There is nothing to load from the repository.
-    if (FirebaseBootstrap.enabled) {
-      _appDataLoaded = true;
-      return;
-    }
-
-    if (_appDataLoaded || _loadingAppData) return;
-
-    _loadingAppData = true;
-    notifyListeners();
-
-    try {
-      // Offline / dev-mode only — repository is MockAppRepository in this path.
-      final results = await Future.wait([
-        _repository.getDoctors(),
-        _repository.getAppointments(),
-        _repository.getHealthRecords(),
-        _repository.getMedicationReminders(),
-        _repository.getNotifications(),
-        _repository.getDoctorQueue(),
-        _repository.getDoctorSchedule(),
-        _repository.getQueueSnapshot(),
-      ]);
-
-      doctors = results[0] as List<Doctor>;
-      appointments = results[1] as List<Appointment>;
-      records = results[2] as List<HealthRecord>;
-      reminders = results[3] as List<MedicationReminder>;
-      notifications = results[4] as List<AppNotification>;
-      doctorQueue = results[5] as List<PatientCase>;
-      doctorSchedule = results[6] as DoctorSchedule;
-      queueSnapshot = results[7] as QueueSnapshot?;
-
-      _appDataLoaded = true;
-    } catch (e) {
-      debugPrint('[AppState] App data loading failed (non-fatal): $e');
-    } finally {
-      _loadingAppData = false;
-      notifyListeners();
-    }
+    // Firebase real-time listeners are already running — nothing to do here.
+    _appDataLoaded = true;
   }
 
   Future<void> login({
@@ -238,14 +198,6 @@ class AppState extends ChangeNotifier {
     required String email,
     required String password,
   }) async {
-    if (!FirebaseBootstrap.enabled) {
-      role = selectedRole;
-      isLoggedIn = true;
-      profileCompleted = selectedRole == UserRole.doctor || profile != null;
-      notifyListeners();
-      return;
-    }
-
     final credential = await _auth.signInWithEmailAndPassword(
       email: email,
       password: password,
@@ -263,24 +215,34 @@ class AppState extends ChangeNotifier {
     required String password,
     UserRole roleOverride = UserRole.patient,
   }) async {
-    if (!FirebaseBootstrap.enabled) {
-      role = roleOverride;
-      isLoggedIn = true;
-      profileCompleted = roleOverride == UserRole.doctor || profile != null;
-      notifyListeners();
-      return;
-    }
-
     final credential = await _auth.createUserWithEmailAndPassword(
       email: email,
       password: password,
     );
 
-    await _attachFirebaseUser(
-      credential.user,
-      roleOverride: roleOverride,
-      isNewUser: true,
-    );
+    try {
+      await _attachFirebaseUser(
+        credential.user,
+        roleOverride: roleOverride,
+        isNewUser: true,
+      );
+    } catch (e) {
+      // ── Atomic rollback ───────────────────────────────────────────────────
+      // If the database role write or any subsequent step fails after the Auth
+      // account was created, attempt to delete the orphan Auth user so the
+      // email doesn't remain permanently blocked.
+      // NOTE: If the client loses connectivity here, the delete may also fail.
+      // A server-side Cloud Function (orphan sweeper) should complement this
+      // client-side guard by deleting Auth users with no /roles/{uid} record
+      // after a 5-minute grace window.
+      try {
+        await credential.user?.delete();
+        debugPrint('[AppState] register(): rolled back orphan Auth user.');
+      } catch (deleteErr) {
+        debugPrint('[AppState] register(): rollback delete failed — $deleteErr');
+      }
+      rethrow;
+    }
   }
 
   /// Updates AppState after the DoctorSignupScreen completes registration.
@@ -503,9 +465,33 @@ class AppState extends ChangeNotifier {
 
       case MetaState.notFound:
         // ── New-user registration path ────────────────────────────────────
-        // Treat both isNewUser==true AND isNewUser==false (Firebase OAuth
-        // inconsistency) as a first-time registration — write the selected
-        // role and continue normally.
+        // Before writing a new role, verify the account is genuinely new.
+        // We do this by checking whether creationTime and lastSignInTime are
+        // within 5 seconds of each other. A pre-existing account will have a
+        // lastSignInTime meaningfully later than creationTime (minutes/days/
+        // months difference). A brand-new account will have both timestamps
+        // set within the same authentication handshake (< 5 seconds apart).
+        //
+        // This guards against the edge case where an attacker uses an existing
+        // Google account (already registered under a different role) on a fresh
+        // device where the local /roles/{uid} node is temporarily unreachable,
+        // causing MetaState.notFound. Without this guard, the role would be
+        // silently overwritten with the attacker's chosen role.
+        final creationTime = user.metadata.creationTime;
+        final lastSignInTime = user.metadata.lastSignInTime;
+        if (creationTime != null && lastSignInTime != null) {
+          final deltaSeconds =
+              lastSignInTime.difference(creationTime).inSeconds.abs();
+          if (deltaSeconds > 5) {
+            // Existing account — role data is temporarily missing (network
+            // issue). Show a generic error that reveals nothing about the
+            // stored role to prevent information leakage.
+            throw Exception(
+              'We could not complete your sign-in. Please try again.',
+            );
+          }
+        }
+
         resolvedRole = roleOverride ?? UserRole.patient;
         final committed = await PatientCloudBootstrap.writeRoleMeta(
           firebaseUserId: user.uid,
@@ -526,7 +512,7 @@ class AppState extends ChangeNotifier {
             resolvedRole = fallbackRole;
           } else {
             throw Exception(
-              'Failed to initialize account role securely. Please try again.',
+              'Failed to initialize account securely. Please try again.',
             );
           }
         }
@@ -638,6 +624,21 @@ class AppState extends ChangeNotifier {
               notifyListeners();
             }
           });
+
+      _doctorMetaSub = _db.ref(FirebasePaths.meta(uid)).onValue.listen((event) {
+        final val = event.snapshot.value;
+        if (val is Map) {
+          final statusRaw = val['verificationStatus'] ?? 'pending';
+          final parsedStatus = DoctorVerificationStatus.values.firstWhere(
+            (s) => s.name == statusRaw,
+            orElse: () => DoctorVerificationStatus.pending,
+          );
+          if (doctorVerificationStatus != parsedStatus) {
+            doctorVerificationStatus = parsedStatus;
+            notifyListeners();
+          }
+        }
+      });
     } else {
       _queueSnapshotSub = _queueRepo.listenQueue(firebaseUid: uid).listen((
         snapshot,
@@ -659,6 +660,7 @@ class AppState extends ChangeNotifier {
     _doctorQueueSub?.cancel();
     _doctorScheduleSub?.cancel();
     _adminApplicationsSub?.cancel();
+    _doctorMetaSub?.cancel();
     _doctorCatalogSub = null;
     _appointmentsSub = null;
     _recordsSub = null;
@@ -668,6 +670,7 @@ class AppState extends ChangeNotifier {
     _doctorQueueSub = null;
     _doctorScheduleSub = null;
     _adminApplicationsSub = null;
+    _doctorMetaSub = null;
 
     // Clear chat history on logout
     aiChatHistory = <ChatMessage>[
@@ -1260,8 +1263,8 @@ class AppState extends ChangeNotifier {
           (medicine) => MedicationReminder(
             id: 'm_${caseId}_${medicine.name}',
             medicineName: '${medicine.name} ${medicine.dose}',
-            times: const <String>['9:00 AM', '3:00 PM', '9:00 PM'],
-            remainingDays: 5,
+            times: medicine.scheduledTimes ?? const <String>['9:00 AM', '9:00 PM'],
+            remainingDays: medicine.durationDays ?? 5,
             isEnabled: true,
           ),
         )
@@ -1326,7 +1329,11 @@ class AppState extends ChangeNotifier {
         '${FirebasePaths.appointments(patientUid)}/$caseId/updatedAtMillis'
       ] = now;
 
-      unawaited(_db.ref().update(atomicUpdate));
+      _db.ref().update(atomicUpdate).then((_) {
+        debugPrint('[AppState] Prescription update successful.');
+      }).catchError((dynamic e, dynamic stack) {
+        debugPrint('[AppState] Prescription update failed: $e\n$stack');
+      });
     }
 
     // Schedule device alarms for all new reminders.

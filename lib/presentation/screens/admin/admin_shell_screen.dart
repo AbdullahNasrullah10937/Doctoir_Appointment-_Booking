@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/doctor_application.dart';
@@ -315,19 +317,31 @@ class _AppList extends StatelessWidget {
   }
 }
 
-class _DoctorCard extends StatelessWidget {
+class _DoctorCard extends StatefulWidget {
   const _DoctorCard({required this.app, required this.showActions});
   final DoctorApplication app;
   final bool showActions;
 
   @override
+  State<_DoctorCard> createState() => _DoctorCardState();
+}
+
+class _DoctorCardState extends State<_DoctorCard> {
+  bool _expanded = false;
+
+  @override
   Widget build(BuildContext context) {
     final appState = AppScope.of(context);
-    final statusColor = app.status == DoctorVerificationStatus.approved
+    final statusColor = widget.app.status == DoctorVerificationStatus.approved
         ? AppTheme.success
-        : app.status == DoctorVerificationStatus.rejected
+        : widget.app.status == DoctorVerificationStatus.rejected
             ? AppTheme.danger
             : AppTheme.qAccent;
+
+    final activeDays = widget.app.availability.entries
+        .where((e) => e.value)
+        .map((e) => e.key)
+        .toList();
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -335,157 +349,291 @@ class _DoctorCard extends StatelessWidget {
         color: AppTheme.surface,
         borderRadius: BorderRadius.circular(AppTheme.radiusCard),
         border: Border.all(color: AppTheme.border),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          // ── Header ────────────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: <Widget>[
-                CircleAvatar(
-                  radius: 28,
-                  backgroundColor: AppTheme.qPrimary.withValues(alpha: 0.12),
-                  backgroundImage: _getProfileImageProvider(app.profileImageUrl),
-                  child: _getProfileImageProvider(app.profileImageUrl) == null
-                      ? Text(
-                          app.fullName.isNotEmpty
-                              ? app.fullName[0].toUpperCase()
-                              : 'D',
-                          style: GoogleFonts.dmSans(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 20,
-                              color: AppTheme.qPrimary),
-                        )
-                      : null,
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(app.fullName,
-                          style: GoogleFonts.dmSans(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 16,
-                              color: AppTheme.textPrimary)),
-                      Text(app.specialization,
-                          style: GoogleFonts.dmSans(
-                              fontSize: 13, color: AppTheme.textSecondary)),
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: statusColor.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          (app.status.name).toUpperCase(),
-                          style: GoogleFonts.dmSans(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: statusColor),
-                        ),
-                      ),
-                    ],
+          // Header (Tapping toggles expansion)
+          InkWell(
+            onTap: () => setState(() => _expanded = !_expanded),
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(AppTheme.radiusCard),
+              topRight: Radius.circular(AppTheme.radiusCard),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: <Widget>[
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundColor: AppTheme.qPrimary.withValues(alpha: 0.12),
+                    backgroundImage: _getProfileImageProvider(widget.app.profileImageUrl),
+                    child: _getProfileImageProvider(widget.app.profileImageUrl) == null
+                        ? Text(
+                            widget.app.fullName.isNotEmpty
+                                ? widget.app.fullName[0].toUpperCase()
+                                : 'D',
+                            style: GoogleFonts.dmSans(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 20,
+                                color: AppTheme.qPrimary),
+                          )
+                        : null,
                   ),
-                ),
-              ],
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(widget.app.fullName,
+                            style: GoogleFonts.dmSans(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 16,
+                                color: AppTheme.textPrimary)),
+                        Text(widget.app.specialization,
+                            style: GoogleFonts.dmSans(
+                                fontSize: 13, color: AppTheme.textSecondary)),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: statusColor.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            (widget.app.status.name).toUpperCase(),
+                            style: GoogleFonts.dmSans(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: statusColor),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    _expanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                    color: AppTheme.textMuted,
+                  ),
+                ],
+              ),
             ),
           ),
 
-          // ── Details ───────────────────────────────────────────────────
+          // Core details (Always shown)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
             child: Wrap(
               spacing: 8,
               runSpacing: 6,
               children: <Widget>[
-                _infoChip(Icons.badge_rounded, 'PMDC: ${app.pmdcNumber}'),
-                _infoChip(Icons.school_rounded, app.qualification),
-                _infoChip(Icons.work_rounded, '${app.experienceYears} yrs exp'),
-                _infoChip(Icons.local_hospital_rounded, app.clinicName),
-                _infoChip(Icons.location_on_rounded, app.city),
-                _infoChip(Icons.attach_money_rounded,
-                    'PKR ${app.consultationFee}'),
+                _infoChip(Icons.badge_rounded, 'PMDC: ${widget.app.pmdcNumber}'),
+                _infoChip(Icons.school_rounded, widget.app.qualification),
+                _infoChip(Icons.work_rounded, '${widget.app.experienceYears} yrs exp'),
+                _infoChip(Icons.local_hospital_rounded, widget.app.clinicName),
+                _infoChip(Icons.location_on_rounded, widget.app.city),
+                _infoChip(Icons.attach_money_rounded, 'PKR ${widget.app.consultationFee}'),
               ],
             ),
           ),
 
-          // ── Documents ─────────────────────────────────────────────────
-          if (app.pmdcCertificateUrl != null)
+          // Expanded section
+          if (_expanded) ...<Widget>[
+            const Divider(height: 1, color: AppTheme.border),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  // Contact Details Section
+                  Text('Contact & General Information',
+                      style: GoogleFonts.dmSans(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: AppTheme.textPrimary)),
+                  const SizedBox(height: 8),
+                  _detailRow(Icons.email_rounded, 'Email', widget.app.email),
+                  _detailRow(Icons.phone_android_rounded, 'Phone', widget.app.phoneNumber),
+                  _detailRow(Icons.person_outline_rounded, 'Gender', widget.app.gender),
+                  const SizedBox(height: 16),
+
+                  // Professional Summary Section
+                  Text('About / Bio',
+                      style: GoogleFonts.dmSans(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: AppTheme.textPrimary)),
+                  const SizedBox(height: 6),
+                  Text(
+                    widget.app.bio.trim().isEmpty ? 'No bio provided.' : widget.app.bio,
+                    style: GoogleFonts.dmSans(
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Clinic details Section
+                  Text('Clinic Location',
+                      style: GoogleFonts.dmSans(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: AppTheme.textPrimary)),
+                  const SizedBox(height: 6),
+                  _detailRow(Icons.location_city_rounded, 'Clinic Address', widget.app.clinicAddress),
+                  const SizedBox(height: 16),
+
+                  // Schedule & consultation Section
+                  Text('Consultation Schedule',
+                      style: GoogleFonts.dmSans(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: AppTheme.textPrimary)),
+                  const SizedBox(height: 8),
+                  _detailRow(Icons.access_time_rounded, 'Timings', '${widget.app.availabilityStart} - ${widget.app.availabilityEnd}'),
+                  _detailRow(
+                    Icons.video_camera_front_rounded,
+                    'Online Consultations',
+                    widget.app.onlineConsultation ? 'Supported' : 'Not Supported',
+                  ),
+                  const SizedBox(height: 8),
+                  Text('Active Weekdays:',
+                      style: GoogleFonts.dmSans(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                          color: AppTheme.textSecondary)),
+                  const SizedBox(height: 6),
+                  activeDays.isEmpty
+                      ? Text('No schedule configured',
+                          style: GoogleFonts.dmSans(
+                              fontSize: 12, color: AppTheme.textMuted, fontStyle: FontStyle.italic))
+                      : Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: activeDays
+                              .map((day) => Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.qPrimary.withValues(alpha: 0.08),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(color: AppTheme.qPrimary.withValues(alpha: 0.2)),
+                                    ),
+                                    child: Text(
+                                      day,
+                                      style: GoogleFonts.dmSans(
+                                        fontSize: 11,
+                                        color: AppTheme.qPrimary,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ))
+                              .toList(),
+                        ),
+                ],
+              ),
+            ),
+          ],
+
+          // Documents / Certificates Section (Always visible)
+          if (widget.app.pmdcCertificateUrl != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
               child: Row(
                 children: <Widget>[
-                  _docThumb('PMDC', app.pmdcCertificateUrl!, context),
-                  if (app.qualificationCertUrl != null) ...<Widget>[
+                  _docThumb('PMDC', widget.app.pmdcCertificateUrl!, context),
+                  if (widget.app.qualificationCertUrl != null) ...<Widget>[
                     const SizedBox(width: 10),
-                    _docThumb('Degree',
-                        app.qualificationCertUrl!, context),
+                    _docThumb('Degree', widget.app.qualificationCertUrl!, context),
                   ],
                 ],
               ),
             ),
 
-          if (app.rejectionReason != null && app.rejectionReason != '')
+          if (widget.app.rejectionReason != null && widget.app.rejectionReason != '')
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
               child: Container(
+                width: double.infinity,
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: AppTheme.danger.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Text('Reason: ${app.rejectionReason}',
+                child: Text('Reason: ${widget.app.rejectionReason}',
                     style: GoogleFonts.dmSans(
                         fontSize: 12, color: AppTheme.danger)),
               ),
             ),
 
-          // ── Actions ───────────────────────────────────────────────────
-          if (showActions)
+          // Action buttons (Pending applications only)
+          if (widget.showActions)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: Row(
                 children: <Widget>[
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () =>
-                          _approve(context, appState, app.uid),
+                      onPressed: () => _approve(context, appState, widget.app.uid),
                       icon: const Icon(Icons.check_rounded, size: 18),
                       label: const Text('Approve'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.success,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
-                            borderRadius:
-                                BorderRadius.circular(AppTheme.radiusMd)),
+                            borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
                       ),
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () =>
-                          _reject(context, appState, app.uid),
+                      onPressed: () => _reject(context, appState, widget.app.uid),
                       icon: const Icon(Icons.close_rounded, size: 18),
                       label: const Text('Reject'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppTheme.danger,
-                        side: BorderSide(
-                            color: AppTheme.danger.withValues(alpha: 0.5)),
+                        side: BorderSide(color: AppTheme.danger.withValues(alpha: 0.5)),
                         shape: RoundedRectangleBorder(
-                            borderRadius:
-                                BorderRadius.circular(AppTheme.radiusMd)),
+                            borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
                       ),
                     ),
                   ),
                 ],
               ),
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _detailRow(IconData icon, String title, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(icon, size: 16, color: AppTheme.textMuted),
+          const SizedBox(width: 8),
+          Expanded(
+            child: RichText(
+              text: TextSpan(
+                style: GoogleFonts.dmSans(fontSize: 12, color: AppTheme.textSecondary),
+                children: <TextSpan>[
+                  TextSpan(text: '$title: ', style: const TextStyle(fontWeight: FontWeight.w700)),
+                  TextSpan(text: value),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -614,46 +762,135 @@ ImageProvider? _getProfileImageProvider(String? imageAsset) {
     return AssetImage(imageAsset);
   }
   try {
-    final bytes = base64Decode(imageAsset);
+    final bytes = _getCleanBytes(imageAsset);
+    if (bytes == null) return null;
     return MemoryImage(bytes);
   } catch (_) {
     return null;
   }
 }
 
-Widget _docThumb(String label, String url, BuildContext context) {
-  final provider = _getProfileImageProvider(url);
-  return GestureDetector(
-    onTap: () => showDialog<void>(
-      context: context,
-      builder: (_) => Dialog(
-        child: InteractiveViewer(
-          child: provider != null
-              ? Image(image: provider)
-              : const SizedBox(
-                  width: 200,
-                  height: 200,
-                  child: Icon(Icons.broken_image_rounded, size: 48),
-                ),
+bool _isPdf(String value) {
+  return value.contains('JVBERi') || value.startsWith('data:application/pdf');
+}
+
+Uint8List? _getCleanBytes(String value) {
+  try {
+    String cleanStr = value;
+    if (value.contains(';base64,')) {
+      cleanStr = value.split(';base64,').last;
+    }
+    return base64Decode(cleanStr.trim());
+  } catch (_) {
+    return null;
+  }
+}
+
+void _viewDocument(BuildContext context, String title, String data) {
+  final bytes = _getCleanBytes(data);
+  if (bytes == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Failed to decode document data.')),
+    );
+    return;
+  }
+
+  showDialog<void>(
+    context: context,
+    builder: (_) => Dialog(
+      insetPadding: const EdgeInsets.all(16),
+      child: Container(
+        width: double.infinity,
+        height: MediaQuery.of(context).size.height * 0.8,
+        decoration: BoxDecoration(
+          color: AppTheme.bg,
+          borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+        ),
+        child: Column(
+          children: <Widget>[
+            // Title Bar
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: const BoxDecoration(
+                border: Border(bottom: BorderSide(color: AppTheme.border)),
+              ),
+              child: Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: GoogleFonts.dmSans(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                        color: AppTheme.textPrimary,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: _isPdf(data)
+                  ? SfPdfViewer.memory(bytes)
+                  : InteractiveViewer(
+                      minScale: 0.5,
+                      maxScale: 4.0,
+                      child: Image.memory(bytes),
+                    ),
+            ),
+          ],
         ),
       ),
     ),
+  );
+}
+
+Widget _docThumb(String label, String url, BuildContext context) {
+  final isPdfFile = _isPdf(url);
+  final bytes = _getCleanBytes(url);
+
+  return GestureDetector(
+    onTap: () => _viewDocument(context, '$label Verification', url),
     child: Column(
       children: <Widget>[
-        ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: provider != null
-              ? Image(
-                  image: provider,
-                  width: 80,
-                  height: 80,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context2, error, stack) =>
-                      Container(width: 80, height: 80, color: AppTheme.surfaceAlt,
-                          child: const Icon(Icons.broken_image_rounded)),
-                )
-              : Container(width: 80, height: 80, color: AppTheme.surfaceAlt,
-                  child: const Icon(Icons.broken_image_rounded)),
+        Container(
+          width: 80,
+          height: 80,
+          decoration: BoxDecoration(
+            color: AppTheme.surfaceAlt,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppTheme.border),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(7),
+            child: bytes != null
+                ? (isPdfFile
+                    ? Container(
+                        color: AppTheme.primarySoft,
+                        child: const Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: <Widget>[
+                            Icon(Icons.picture_as_pdf_rounded, color: AppTheme.danger, size: 32),
+                            SizedBox(height: 4),
+                            Text('PDF File', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.danger)),
+                          ],
+                        ),
+                      )
+                    : Image.memory(
+                        bytes,
+                        width: 80,
+                        height: 80,
+                        fit: BoxFit.cover,
+                        errorBuilder: (ctx, err, st) =>
+                            const Icon(Icons.broken_image_rounded),
+                      ))
+                : const Icon(Icons.broken_image_rounded),
+          ),
         ),
         const SizedBox(height: 4),
         Text(label,

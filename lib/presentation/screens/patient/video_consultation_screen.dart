@@ -63,7 +63,7 @@ class VideoConsultationScreen extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: <Widget>[
                     AssetCircleAvatar(
-                      imageAsset: doctor?.imageAsset,
+                      imageAsset: doctor?.imageUrl,
                       initials: buildInitials(doctor?.name ?? 'DR', fallback: 'DR'),
                       radius: 52,
                       borderColor: AppTheme.accentBlue,

@@ -61,6 +61,10 @@ dependencies:
   flutter_local_notifications: ^17.2.4
   timezone: ^0.9.4
   url_launcher: ^6.3.2
+  syncfusion_flutter_pdfviewer: ^33.2.10
+  firebase_crashlytics: ^4.2.5
+  firebase_performance: ^0.10.1
+  workmanager: ^0.9.0
 
 dev_dependencies:
   flutter_test:

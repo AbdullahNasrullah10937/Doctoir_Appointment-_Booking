@@ -19,12 +19,6 @@ class RoleMismatchException implements Exception {
 
   @override
   String toString() {
-    final selected = _label(selectedRole);
-    final registered = _label(registeredRole);
-    return 'Role mismatch: this account is registered as $registered, '
-        'but you selected $selected.';
+    return 'This account already exists. Please use your original sign-in method.';
   }
-
-  static String _label(UserRole role) =>
-      role == UserRole.doctor ? 'Doctor' : 'Patient';
 }

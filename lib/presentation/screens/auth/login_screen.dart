@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/app_entities.dart';
+import '../../../domain/entities/doctor_application.dart';
 import '../../../domain/entities/role_mismatch_exception.dart';
 import '../../routes/app_router.dart';
 import '../../state/app_scope.dart';
@@ -63,7 +64,13 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
     if (appState.role == UserRole.doctor) {
-      Navigator.of(context).pushReplacementNamed(AppRouter.doctorShell);
+      if (appState.doctorVerificationStatus == DoctorVerificationStatus.approved) {
+        Navigator.of(context).pushReplacementNamed(AppRouter.doctorShell);
+      } else if (appState.doctorVerificationStatus == DoctorVerificationStatus.rejected) {
+        Navigator.of(context).pushReplacementNamed(AppRouter.doctorRejected);
+      } else {
+        Navigator.of(context).pushReplacementNamed(AppRouter.doctorPending);
+      }
       return;
     }
     if (!appState.profileCompleted) {
@@ -89,7 +96,13 @@ class _LoginScreenState extends State<LoginScreen> {
           return;
         }
         if (appState.role == UserRole.doctor) {
-          Navigator.of(context).pushReplacementNamed(AppRouter.doctorShell);
+          if (appState.doctorVerificationStatus == DoctorVerificationStatus.approved) {
+            Navigator.of(context).pushReplacementNamed(AppRouter.doctorShell);
+          } else if (appState.doctorVerificationStatus == DoctorVerificationStatus.rejected) {
+            Navigator.of(context).pushReplacementNamed(AppRouter.doctorRejected);
+          } else {
+            Navigator.of(context).pushReplacementNamed(AppRouter.doctorPending);
+          }
           return;
         }
         if (!appState.profileCompleted) {

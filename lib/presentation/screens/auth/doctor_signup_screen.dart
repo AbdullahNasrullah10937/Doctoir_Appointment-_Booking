@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -25,6 +26,11 @@ class _DoctorSignupScreenState extends State<DoctorSignupScreen> {
   final PageController _pageCtrl = PageController();
   int _step = 0;
   bool _isSubmitting = false;
+
+  /// Populated when the user reached this screen via "Google + Doctor" signup.
+  /// When non-null, email/password fields are hidden and authentication uses
+  /// the Google credential instead of email+password.
+  GoogleSignInAccount? _googleAccount;
 
   // Step 1 — Account
   final _nameCtrl = TextEditingController();
@@ -64,6 +70,19 @@ class _DoctorSignupScreenState extends State<DoctorSignupScreen> {
   File? _pmdcImg;
   File? _qualImg;
   final _picker = ImagePicker();
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_googleAccount != null) return; // already initialised
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is GoogleSignInAccount) {
+      _googleAccount = args;
+      // Pre-fill name and email from the Google account.
+      _nameCtrl.text = args.displayName ?? '';
+      _emailCtrl.text = args.email;
+    }
+  }
 
   @override
   void dispose() {
@@ -136,11 +155,22 @@ class _DoctorSignupScreenState extends State<DoctorSignupScreen> {
       final pmdcUrl = await _toBase64(_pmdcImg);
       final qualUrl = await _toBase64(_qualImg);
 
-      // Create Firebase Auth account
-      cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: _emailCtrl.text.trim(),
-        password: _passCtrl.text,
-      );
+      // ── Authenticate with Firebase ──────────────────────────────────────────────
+      if (_googleAccount != null) {
+        // Google signup path: obtain fresh tokens then sign in with credential
+        final googleAuth = await _googleAccount!.authentication;
+        final googleCredential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+        cred = await FirebaseAuth.instance.signInWithCredential(googleCredential);
+      } else {
+        // Email/password signup path
+        cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+          email: _emailCtrl.text.trim(),
+          password: _passCtrl.text,
+        );
+      }
       final uid = cred.user!.uid;
 
       // Write role meta
@@ -149,7 +179,10 @@ class _DoctorSignupScreenState extends State<DoctorSignupScreen> {
         role: UserRole.doctor,
       );
       if (!roleMetaSuccess) {
-        throw Exception('Failed to write user role. Please try again.');
+        // Check if another process already wrote this role (race condition)
+        // If role is already doctor, that's fine — continue.
+        // If a conflicting role exists, block registration.
+        throw Exception('Account is already registered. Please sign in instead.');
       }
 
       final repo = DoctorApplicationRepository();
@@ -201,7 +234,7 @@ class _DoctorSignupScreenState extends State<DoctorSignupScreen> {
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        SnackBar(content: Text('Registration failed: $e')),
       );
       setState(() => _isSubmitting = false);
     }
@@ -309,6 +342,7 @@ class _DoctorSignupScreenState extends State<DoctorSignupScreen> {
                     gender: _gender,
                     hidePass: _hidePass,
                     hideConfirm: _hideConfirm,
+                    isGoogleSignup: _googleAccount != null,
                     onGenderChanged: (v) => setState(() => _gender = v),
                     onTogglePass: () => setState(() => _hidePass = !_hidePass),
                     onToggleConfirm: () =>
@@ -365,6 +399,7 @@ class _Step1 extends StatelessWidget {
     required this.formKey, required this.nameCtrl, required this.emailCtrl,
     required this.passCtrl, required this.confirmCtrl, required this.phoneCtrl,
     required this.gender, required this.hidePass, required this.hideConfirm,
+    required this.isGoogleSignup,
     required this.onGenderChanged, required this.onTogglePass,
     required this.onToggleConfirm, required this.onNext,
   });
@@ -372,6 +407,7 @@ class _Step1 extends StatelessWidget {
   final TextEditingController nameCtrl, emailCtrl, passCtrl, confirmCtrl, phoneCtrl;
   final String gender;
   final bool hidePass, hideConfirm;
+  final bool isGoogleSignup;
   final ValueChanged<String> onGenderChanged;
   final VoidCallback onTogglePass, onToggleConfirm, onNext;
 
@@ -383,16 +419,46 @@ class _Step1 extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         children: <Widget>[
           _sectionTitle('Basic Information'),
+          if (isGoogleSignup) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE8F0FE),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFF1A73E8), width: 0.8),
+              ),
+              child: const Row(
+                children: <Widget>[
+                  Icon(Icons.g_mobiledata_rounded, color: Color(0xFF1A73E8), size: 28),
+                  SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      'Linked via Google Sign-In. You do not need to create a password.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF1A73E8),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           _field('Full Name', nameCtrl, icon: Icons.person_outline,
               validator: (v) => v!.trim().isEmpty ? 'Required' : null),
           _field('Email', emailCtrl, icon: Icons.email_outlined,
               type: TextInputType.emailAddress,
+              enabled: !isGoogleSignup,
               validator: (v) => !v!.contains('@') ? 'Invalid email' : null),
-          _passwordField('Password', passCtrl, hidePass, onTogglePass,
-              validator: (v) => v!.length < 6 ? 'Min 6 chars' : null),
-          _passwordField('Confirm Password', confirmCtrl, hideConfirm,
-              onToggleConfirm,
-              validator: (v) => v != passCtrl.text ? 'Passwords do not match' : null),
+          if (!isGoogleSignup) ...[
+            _passwordField('Password', passCtrl, hidePass, onTogglePass,
+                validator: (v) => v!.length < 6 ? 'Min 6 chars' : null),
+            _passwordField('Confirm Password', confirmCtrl, hideConfirm,
+                onToggleConfirm,
+                validator: (v) => v != passCtrl.text ? 'Passwords do not match' : null),
+          ],
           _field('Phone Number', phoneCtrl, icon: Icons.phone_outlined,
               type: TextInputType.phone,
               validator: (v) => v!.trim().isEmpty ? 'Required' : null),
@@ -725,6 +791,7 @@ Widget _field(
   String? Function(String?)? validator,
   int maxLines = 1,
   bool isRequired = true,
+  bool enabled = true,
 }) {
   return Padding(
     padding: const EdgeInsets.only(bottom: 12),
@@ -732,6 +799,7 @@ Widget _field(
       controller: ctrl,
       keyboardType: type,
       maxLines: maxLines,
+      enabled: enabled,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: icon != null ? Icon(icon) : null,

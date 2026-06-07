@@ -228,7 +228,7 @@ class DoctorApplicationRepository {
       'gender': app.gender,
       'distanceKm': 0.0,
       'isAvailableToday': true,
-      'imageAsset': app.profileImageUrl,
+      'imageUrl': app.profileImageUrl,
       'reviews': <dynamic>[],
       'updatedAtMillis': now,
     });

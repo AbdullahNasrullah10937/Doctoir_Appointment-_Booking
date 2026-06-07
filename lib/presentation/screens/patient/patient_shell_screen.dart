@@ -246,7 +246,7 @@ class _PatientHomeTab extends StatelessWidget {
                     children: <Widget>[
                       Row(
                         children: <Widget>[
-                          AssetCircleAvatar(imageAsset: upcoming.doctor.imageAsset, initials: buildInitials(upcoming.doctor.name, fallback: 'DR'), radius: 24),
+                          AssetCircleAvatar(imageAsset: upcoming.doctor.imageUrl, initials: buildInitials(upcoming.doctor.name, fallback: 'DR'), radius: 24),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
@@ -308,7 +308,7 @@ class _PatientHomeTab extends StatelessWidget {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: <Widget>[
-                            AssetCircleAvatar(imageAsset: doc.imageAsset, initials: buildInitials(doc.name, fallback: 'DR'), radius: 28),
+                            AssetCircleAvatar(imageAsset: doc.imageUrl, initials: buildInitials(doc.name, fallback: 'DR'), radius: 28),
                             const SizedBox(height: 8),
                             Text(doc.name, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
                             Text(doc.specialty, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppTheme.textMuted, fontSize: 11)),
@@ -445,7 +445,7 @@ class _AppointmentCard extends StatelessWidget {
           : () => Navigator.of(context).pushNamed(AppRouter.queueTracker, arguments: appointment),
       child: Row(
         children: <Widget>[
-          AssetCircleAvatar(imageAsset: appointment.doctor.imageAsset, initials: buildInitials(appointment.doctor.name, fallback: 'DR'), radius: 22),
+          AssetCircleAvatar(imageAsset: appointment.doctor.imageUrl, initials: buildInitials(appointment.doctor.name, fallback: 'DR'), radius: 22),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../../domain/entities/app_entities.dart';
 import '../../domain/entities/role_mismatch_exception.dart';
 
 /// The two choices a user can make when a role mismatch is detected.
 enum _MismatchChoice { goBack, signUp }
 
 /// A non-dismissible dialog shown when a returning user tries to sign in with
-/// a role that differs from their permanently stored role.
+/// an incorrect sign-in path or mismatched configuration.
 ///
 /// Returns a [_MismatchChoice] via [Navigator.pop].
 class RoleMismatchDialog extends StatelessWidget {
@@ -15,22 +14,16 @@ class RoleMismatchDialog extends StatelessWidget {
 
   final RoleMismatchException exception;
 
-  static String _label(UserRole role) =>
-      role == UserRole.doctor ? 'Doctor' : 'Patient';
-
   @override
   Widget build(BuildContext context) {
-    final registeredLabel = _label(exception.registeredRole);
-    final selectedLabel = _label(exception.selectedRole);
-
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Row(
+      title: const Row(
         children: <Widget>[
-          const Icon(Icons.shield_outlined, color: Color(0xFFE65100), size: 22),
-          const SizedBox(width: 8),
-          const Text(
-            'Role Mismatch',
+          Icon(Icons.shield_outlined, color: Color(0xFFE65100), size: 22),
+          SizedBox(width: 8),
+          Text(
+            'Account Exists',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
           ),
         ],
@@ -39,30 +32,13 @@ class RoleMismatchDialog extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          RichText(
-            text: TextSpan(
-              style: const TextStyle(
-                fontSize: 14,
-                color: Color(0xFF424242),
-                height: 1.5,
-              ),
-              children: <TextSpan>[
-                const TextSpan(text: 'This Google account is registered as a '),
-                TextSpan(
-                  text: registeredLabel,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-                const TextSpan(text: ', but you selected '),
-                TextSpan(
-                  text: selectedLabel,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-                const TextSpan(text: ' on the sign-in page.\n\n'),
-                const TextSpan(
-                  text:
-                      'Role is permanently bound to your account and cannot be changed.',
-                ),
-              ],
+          const Text(
+            'This Google account is already registered with a different configuration.\n\n'
+            'To prevent unauthorized access, settings are permanently bound to your account and cannot be modified.',
+            style: TextStyle(
+              fontSize: 14,
+              color: Color(0xFF424242),
+              height: 1.5,
             ),
           ),
           const SizedBox(height: 12),
@@ -73,18 +49,18 @@ class RoleMismatchDialog extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: const Color(0xFFFF9800), width: 0.8),
             ),
-            child: Row(
+            child: const Row(
               children: <Widget>[
-                const Icon(
+                Icon(
                   Icons.info_outline_rounded,
                   color: Color(0xFFE65100),
                   size: 16,
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'To use a different role, register with a different Google account.',
-                    style: const TextStyle(
+                    'Please sign in with your original credentials or use a different Google account.',
+                    style: TextStyle(
                       fontSize: 12,
                       color: Color(0xFFE65100),
                       height: 1.4,
@@ -98,7 +74,7 @@ class RoleMismatchDialog extends StatelessWidget {
       ),
       actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       actions: <Widget>[
-        // Primary: go back and use correct role
+        // Primary: go back and sign in
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
@@ -112,7 +88,7 @@ class RoleMismatchDialog extends StatelessWidget {
             ),
             onPressed: () =>
                 Navigator.of(context).pop(_MismatchChoice.goBack),
-            child: Text('Sign in as $registeredLabel'),
+            child: const Text('Go to Sign In'),
           ),
         ),
         const SizedBox(height: 6),
@@ -140,7 +116,7 @@ class RoleMismatchDialog extends StatelessWidget {
 
 /// Shows the [RoleMismatchDialog] and handles both user choices.
 ///
-/// [onGoBack] — called when user wants to sign in with the correct stored role.
+/// [onGoBack] — called when user wants to sign in.
 /// [onSignUp] — called when user wants to register a new account.
 Future<void> showRoleMismatchDialog({
   required BuildContext context,

@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/app_entities.dart';
@@ -117,6 +118,45 @@ class _SignupScreenState extends State<SignupScreen> {
     }
 
     setState(() => _isSubmitting = true);
+
+    // ── Doctor Role: Google OAuth prefill path ─────────────────────────────
+    // For doctors, we intercept the Google OAuth flow BEFORE signing into
+    // Firebase. We collect the Google account's name/email as prefill data,
+    // then hand it to DoctorSignupScreen to complete the 4-step registration.
+    // The Firebase Auth sign-in using the Google credential happens inside
+    // DoctorSignupScreen._submit() at the very end, after all form data is
+    // collected and validated.
+    if (_selectedRole == UserRole.doctor) {
+      try {
+        final googleSignIn = GoogleSignIn();
+        // Force the account picker to appear (prevents silent re-use of a
+        // previously signed-in Google account).
+        await googleSignIn.signOut().catchError((_) => null);
+        final googleUser = await googleSignIn.signIn();
+        if (!mounted) return;
+        if (googleUser == null) {
+          // User cancelled the picker — abort silently.
+          setState(() => _isSubmitting = false);
+          return;
+        }
+        // Navigate to the 4-step doctor signup form with the Google account
+        // object passed as an argument for credential use at submission.
+        setState(() => _isSubmitting = false);
+        await Navigator.of(context).pushNamed(
+          AppRouter.doctorSignup,
+          arguments: googleUser,
+        );
+      } catch (error) {
+        if (!mounted) return;
+        setState(() => _isSubmitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Google sign-in failed. Please try again.')),
+        );
+      }
+      return;
+    }
+
+    // ── Patient Role: standard Google sign-in path ─────────────────────────
     final appState = AppScope.of(context);
     appState.completeOnboarding();
     try {
@@ -124,11 +164,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
       if (!mounted) return;
       if (appState.isLoggedIn) {
-        if (appState.role == UserRole.doctor) {
-          Navigator.of(context).pushReplacementNamed(AppRouter.doctorShell);
-        } else {
-          Navigator.of(context).pushReplacementNamed(AppRouter.profileSetup);
-        }
+        Navigator.of(context).pushReplacementNamed(AppRouter.profileSetup);
       }
     } on RoleMismatchException catch (e) {
       // Safe sign-out — must never crash the flow.
@@ -142,25 +178,24 @@ class _SignupScreenState extends State<SignupScreen> {
         context: context,
         exception: e,
         onGoBack: () {
-          // Return to the login screen with the correct role pre-selected.
-          Navigator.of(context).pushReplacementNamed(
-            AppRouter.login,
-          );
+          // Return to the login screen.
+          Navigator.of(context).pushReplacementNamed(AppRouter.login);
         },
         onSignUp: () {
-          // Stay on this page but update the role selector to what was chosen.
+          // Stay on the signup page. Show a generic prompt that does not
+          // reveal which role is registered on this account.
           setState(() {
             _selectedRole = e.selectedRole;
             _redirectMessage =
-                'Please register a new account for the '
-                '${e.selectedRole == UserRole.doctor ? 'Doctor' : 'Patient'} role.';
+                'This Google account is already registered. '
+                'Please use a different account or sign in instead.';
           });
         },
       );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Google sign up failed: $error')),
+        const SnackBar(content: Text('Sign-up failed. Please try again.')),
       );
     } finally {
       if (mounted) {

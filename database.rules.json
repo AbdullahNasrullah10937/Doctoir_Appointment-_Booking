@@ -24,25 +24,37 @@
     "users": {
       "$uid": {
         ".read":  "auth != null && auth.uid === $uid",
-        ".write": "auth != null && auth.uid === $uid",
 
         "profile": {
+          ".write": "auth != null && auth.uid === $uid",
           ".validate": "newData.hasChildren(['encryptedData', 'nameHash', 'age', 'gender'])"
         },
 
         "appointments": {
           "$appointmentId": {
-            ".validate": "newData.hasChildren(['id', 'dateTimeUtcMillis', 'tokenNumber', 'status', 'doctorId'])"
+            ".write": "auth != null && (auth.uid === $uid || (root.child('roles').child(auth.uid).child('appRole').val() === 'doctor' && root.child('roles').child(auth.uid).child('verificationStatus').val() === 'approved' && (!data.exists() || data.child('doctorId').val() === auth.uid || newData.child('doctorId').val() === auth.uid)))",
+            ".validate": "!newData.exists() || newData.hasChildren(['id', 'dateTimeUtcMillis', 'tokenNumber', 'status', 'doctorId'])"
           }
         },
 
         "notifications": {
           "$notificationId": {
-            ".validate": "newData.hasChildren(['id', 'title', 'message', 'type', 'isUnread'])"
+            ".write": "auth != null && (auth.uid === $uid || (root.child('roles').child(auth.uid).child('appRole').val() === 'doctor' && root.child('roles').child(auth.uid).child('verificationStatus').val() === 'approved'))",
+            ".validate": "!newData.exists() || newData.hasChildren(['id', 'title', 'message', 'type', 'isUnread'])"
           }
         },
 
-        "ai_chat_history": {}
+        "ai_chat_history": {
+          ".write": "auth != null && auth.uid === $uid"
+        },
+
+        "chat_sessions": {
+          ".write": "auth != null && auth.uid === $uid"
+        },
+
+        "sync_telemetry": {
+          ".write": "auth != null && auth.uid === $uid"
+        }
       }
     },
 
@@ -121,13 +133,14 @@
         ".read": "auth != null",
 
         "$doctorId": {
-          ".write": "auth != null && auth.uid === $doctorId",
+          ".write": "auth != null && (auth.uid === $doctorId || root.child('roles').child(auth.uid).child('appRole').val() === 'admin')",
           ".validate": "newData.hasChildren(['id', 'name', 'specialty', 'hospital', 'rating'])"
         }
       }
     },
 
     "doctor_applications": {
+      ".read": "auth != null && root.child('roles').child(auth.uid).child('appRole').val() === 'admin'",
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || root.child('roles').child(auth.uid).child('appRole').val() === 'admin')",
         ".write": "auth != null && (auth.uid === $uid || root.child('roles').child(auth.uid).child('appRole').val() === 'admin')"

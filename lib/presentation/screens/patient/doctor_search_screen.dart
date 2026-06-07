@@ -202,7 +202,7 @@ class _DoctorSearchScreenState extends State<DoctorSearchScreen> {
                         child: Row(
                           children: <Widget>[
                             AssetCircleAvatar(
-                              imageAsset: doctor.imageAsset,
+                              imageAsset: doctor.imageUrl,
                               initials: buildInitials(doctor.name, fallback: 'DR'),
                               radius: 28,
                             ),

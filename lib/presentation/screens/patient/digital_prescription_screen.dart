@@ -177,9 +177,9 @@ class _DigitalPrescriptionScreenState extends State<DigitalPrescriptionScreen> {
       ),
     );
 
-    await Printing.sharePdf(
-      bytes: await doc.save(),
-      filename: 'prescription_${rx.patientName.replaceAll(' ', '_')}_${_formatDate(rx.date)}.pdf',
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => doc.save(),
+      name: 'prescription_${rx.patientName.replaceAll(' ', '_')}_${_formatDate(rx.date)}',
     );
   }
 

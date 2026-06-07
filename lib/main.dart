@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+import 'core/background/background_sync_worker.dart';
 import 'core/notifications/notification_service.dart';
 import 'core/security/encryption_service.dart';
 import 'firebase_options.dart';
@@ -16,8 +18,10 @@ import 'presentation/app.dart';
 /// 2. FCM background handler (must precede Firebase.initializeApp)
 /// 3. Load .env
 /// 4. Firebase initialization
-/// 5. EncryptionService (reads from secure storage — must run after binding)
-/// 6. runApp
+/// 5. Global crash reporting configuration (Crashlytics)
+/// 6. Workmanager background sync initialization
+/// 7. EncryptionService (reads from secure storage — must run after binding)
+/// 8. runApp
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -51,6 +55,28 @@ Future<void> main() async {
     } else {
       debugPrint('[Firebase] Init error: $e');
     }
+  }
+
+  // ── Firebase Crashlytics ──────────────────────────────────────────────────────
+  // Bind global hooks to record unhandled exception logs in production
+  try {
+    FlutterError.onError = (details) {
+      FirebaseCrashlytics.instance.recordFlutterFatalError(details);
+    };
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
+    debugPrint('[Crashlytics] Global fatal exception handlers registered.');
+  } catch (e) {
+    debugPrint('[Crashlytics] Setup error: $e');
+  }
+
+  // ── Background Sync Worker ───────────────────────────────────────────────────
+  // Initialise Workmanager and schedule periodic synchronization tasks
+  if (!kIsWeb) {
+    await BackgroundSyncWorker.initialize();
+    await BackgroundSyncWorker.schedulePeriodicSync();
   }
 
   // ── EncryptionService ────────────────────────────────────────────────────────

@@ -496,7 +496,7 @@ class _DoctorMiniCard extends StatelessWidget {
       child: Row(
         children: <Widget>[
           AssetCircleAvatar(
-            imageAsset: doctor.imageAsset,
+            imageAsset: doctor.imageUrl,
             initials: doctor.name.isNotEmpty ? doctor.name[0] : 'D',
             radius: 24,
           ),

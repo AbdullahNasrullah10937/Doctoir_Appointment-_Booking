@@ -165,19 +165,17 @@ class MedicineInputRow {
   MedicineInputRow({
     required this.medicineController,
     required this.doseController,
-    required this.frequencyController,
-    required this.durationController,
+    this.frequency = 'Twice daily',
+    this.duration = '5 days',
   });
 
   final TextEditingController medicineController;
   final TextEditingController doseController;
-  final TextEditingController frequencyController;
-  final TextEditingController durationController;
+  String frequency;
+  String duration;
 
   void dispose() {
     medicineController.dispose();
     doseController.dispose();
-    frequencyController.dispose();
-    durationController.dispose();
   }
 }

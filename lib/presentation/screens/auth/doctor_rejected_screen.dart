@@ -5,14 +5,49 @@ import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/doctor_application.dart';
 import '../../routes/app_router.dart';
 import '../../state/app_scope.dart';
+import '../../state/app_state.dart';
 
-class DoctorRejectedScreen extends StatelessWidget {
+class DoctorRejectedScreen extends StatefulWidget {
   const DoctorRejectedScreen({super.key});
 
   @override
+  State<DoctorRejectedScreen> createState() => _DoctorRejectedScreenState();
+}
+
+class _DoctorRejectedScreenState extends State<DoctorRejectedScreen> {
+  late final AppState _appState;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _appState = AppScope.of(context);
+    _appState.addListener(_onStateChanged);
+    _checkStatus();
+  }
+
+  @override
+  void dispose() {
+    _appState.removeListener(_onStateChanged);
+    super.dispose();
+  }
+
+  void _onStateChanged() {
+    if (mounted) {
+      _checkStatus();
+    }
+  }
+
+  void _checkStatus() {
+    if (_appState.doctorVerificationStatus == DoctorVerificationStatus.approved) {
+      Navigator.of(context).pushReplacementNamed(AppRouter.doctorShell);
+    } else if (_appState.doctorVerificationStatus == DoctorVerificationStatus.pending) {
+      Navigator.of(context).pushReplacementNamed(AppRouter.doctorPending);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final appState = AppScope.of(context);
-    final app = appState.currentDoctorApplication;
+    final app = _appState.currentDoctorApplication;
     final reason = app?.rejectionReason ?? 'Please contact support for details.';
 
     return Scaffold(
@@ -24,7 +59,6 @@ class DoctorRejectedScreen extends StatelessWidget {
             children: <Widget>[
               const Spacer(),
 
-              // ── Icon ─────────────────────────────────────────────────────
               Container(
                 width: 120,
                 height: 120,
@@ -44,7 +78,6 @@ class DoctorRejectedScreen extends StatelessWidget {
               ),
               const SizedBox(height: 32),
 
-              // ── Title ────────────────────────────────────────────────────
               Text(
                 'Verification Rejected',
                 style: GoogleFonts.dmSans(
@@ -67,7 +100,6 @@ class DoctorRejectedScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
 
-              // ── Reason card ──────────────────────────────────────────────
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(18),
@@ -111,12 +143,11 @@ class DoctorRejectedScreen extends StatelessWidget {
 
               const Spacer(),
 
-              // ── Resubmit button ──────────────────────────────────────────
               if (app != null)
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: () => _resubmit(context, appState, app),
+                    onPressed: () => _resubmit(context, _appState, app),
                     icon: const Icon(Icons.refresh_rounded),
                     label: const Text('Resubmit Verification'),
                     style: ElevatedButton.styleFrom(
@@ -132,12 +163,11 @@ class DoctorRejectedScreen extends StatelessWidget {
                 ),
               const SizedBox(height: 12),
 
-              // ── Logout ───────────────────────────────────────────────────
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: () {
-                    appState.logout();
+                    _appState.logout();
                     Navigator.of(context)
                         .pushReplacementNamed(AppRouter.login);
                   },
@@ -163,10 +193,9 @@ class DoctorRejectedScreen extends StatelessWidget {
 
   Future<void> _resubmit(
     BuildContext context,
-    dynamic appState,
+    AppState appState,
     DoctorApplication current,
   ) async {
-    // Navigate to doctor signup in "resubmit" mode — step 4 only
     Navigator.of(context).pushNamed(
       AppRouter.doctorSignup,
       arguments: <String, dynamic>{'resubmit': true, 'application': current},

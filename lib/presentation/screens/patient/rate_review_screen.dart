@@ -78,7 +78,7 @@ class _RateReviewScreenState extends State<RateReviewScreen> {
                     child: Column(
                       children: <Widget>[
                         AssetCircleAvatar(
-                          imageAsset: doctor?.imageAsset,
+                          imageAsset: doctor?.imageUrl,
                           initials: buildInitials(doctor?.name ?? 'Doctor', fallback: 'DR'),
                           radius: 36,
                           borderColor: AppTheme.accentBlue,

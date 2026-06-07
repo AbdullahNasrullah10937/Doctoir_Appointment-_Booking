@@ -63,7 +63,7 @@ class Doctor {
     required this.gender,
     required this.distanceKm,
     required this.isAvailableToday,
-    this.imageAsset,
+    this.imageUrl,
     this.reviews = const [],
   });
 
@@ -80,7 +80,7 @@ class Doctor {
   final String gender;
   final double distanceKm;
   final bool isAvailableToday;
-  final String? imageAsset;
+  final String? imageUrl;
   final List<DoctorReview> reviews;
 }
 
@@ -200,12 +200,16 @@ class PrescriptionMedicine {
     required this.dose,
     required this.frequency,
     required this.duration,
+    this.scheduledTimes,
+    this.durationDays,
   });
 
   final String name;
   final String dose;
   final String frequency;
   final String duration;
+  final List<String>? scheduledTimes;
+  final int? durationDays;
 }
 
 class Prescription {

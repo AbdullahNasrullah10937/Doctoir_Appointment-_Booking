@@ -313,7 +313,7 @@ class DoctorRtdbCodec {
       'gender': doctor.gender,
       'distanceKm': doctor.distanceKm,
       'isAvailableToday': doctor.isAvailableToday,
-      'imageAsset': doctor.imageAsset,
+      'imageUrl': doctor.imageUrl,
       'reviews': doctor.reviews
           .map(
             (review) => <String, dynamic>{
@@ -346,9 +346,9 @@ class DoctorRtdbCodec {
       gender: '${raw['gender'] ?? ''}',
       distanceKm: _asDouble(raw['distanceKm'], fallback: 1).clamp(0, 9999),
       isAvailableToday: raw['isAvailableToday'] == true,
-      imageAsset:
-          raw['imageAsset'] is String && '${raw['imageAsset']}'.isNotEmpty
-          ? '${raw['imageAsset']}'
+      imageUrl: (raw['imageUrl'] ?? raw['imageAsset']) is String &&
+              '${raw['imageUrl'] ?? raw['imageAsset']}'.isNotEmpty
+          ? '${raw['imageUrl'] ?? raw['imageAsset']}'
           : null,
       reviews: _decodeReviews(raw['reviews']),
     );
@@ -423,6 +423,8 @@ class PrescriptionRtdbCodec {
                 'dose': m.dose,
                 'frequency': m.frequency,
                 'duration': m.duration,
+                'scheduledTimes': m.scheduledTimes,
+                'durationDays': m.durationDays,
               })
           .toList(),
     });
@@ -459,11 +461,20 @@ class PrescriptionRtdbCodec {
     if (rawMedicines is List) {
       for (final item in rawMedicines) {
         if (item is Map) {
+          final rawScheduledTimes = item['scheduledTimes'];
+          final List<String> scheduledTimes = rawScheduledTimes is List
+              ? rawScheduledTimes.map((dynamic e) => '$e').toList()
+              : const <String>[];
+
           medicines.add(PrescriptionMedicine(
             name: '${item['name'] ?? ''}',
             dose: '${item['dose'] ?? ''}',
             frequency: '${item['frequency'] ?? ''}',
             duration: '${item['duration'] ?? ''}',
+            scheduledTimes: scheduledTimes,
+            durationDays: item['durationDays'] != null
+                ? _asInt(item['durationDays'], fallback: 5)
+                : null,
           ));
         }
       }

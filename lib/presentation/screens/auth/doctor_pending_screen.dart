@@ -2,15 +2,51 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../domain/entities/doctor_application.dart';
 import '../../routes/app_router.dart';
 import '../../state/app_scope.dart';
+import '../../state/app_state.dart';
 
-class DoctorPendingScreen extends StatelessWidget {
+class DoctorPendingScreen extends StatefulWidget {
   const DoctorPendingScreen({super.key});
 
   @override
+  State<DoctorPendingScreen> createState() => _DoctorPendingScreenState();
+}
+
+class _DoctorPendingScreenState extends State<DoctorPendingScreen> {
+  late final AppState _appState;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _appState = AppScope.of(context);
+    _appState.addListener(_onStateChanged);
+    _checkStatus();
+  }
+
+  @override
+  void dispose() {
+    _appState.removeListener(_onStateChanged);
+    super.dispose();
+  }
+
+  void _onStateChanged() {
+    if (mounted) {
+      _checkStatus();
+    }
+  }
+
+  void _checkStatus() {
+    if (_appState.doctorVerificationStatus == DoctorVerificationStatus.approved) {
+      Navigator.of(context).pushReplacementNamed(AppRouter.doctorShell);
+    } else if (_appState.doctorVerificationStatus == DoctorVerificationStatus.rejected) {
+      Navigator.of(context).pushReplacementNamed(AppRouter.doctorRejected);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final appState = AppScope.of(context);
     return Scaffold(
       backgroundColor: AppTheme.bg,
       body: SafeArea(
@@ -20,7 +56,6 @@ class DoctorPendingScreen extends StatelessWidget {
             children: <Widget>[
               const Spacer(),
 
-              // ── Animated icon ────────────────────────────────────────────
               Container(
                 width: 120,
                 height: 120,
@@ -47,7 +82,6 @@ class DoctorPendingScreen extends StatelessWidget {
               ),
               const SizedBox(height: 32),
 
-              // ── Title ────────────────────────────────────────────────────
               Text(
                 'Under Review',
                 style: GoogleFonts.dmSans(
@@ -72,7 +106,6 @@ class DoctorPendingScreen extends StatelessWidget {
               ),
               const SizedBox(height: 32),
 
-              // ── Status card ──────────────────────────────────────────────
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(18),
@@ -107,12 +140,11 @@ class DoctorPendingScreen extends StatelessWidget {
 
               const Spacer(),
 
-              // ── Logout ───────────────────────────────────────────────────
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: () {
-                    appState.logout();
+                    _appState.logout();
                     Navigator.of(context)
                         .pushReplacementNamed(AppRouter.login);
                   },
