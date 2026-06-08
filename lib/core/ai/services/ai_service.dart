@@ -1,7 +1,7 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 
+import '../../logging/logging_service.dart';
 import '../config/ai_config.dart';
 import '../network/api_client.dart';
 import '../providers/groq_provider.dart';
@@ -47,9 +47,9 @@ class AiService {
       }
       return;
     } on AiException catch (e) {
-      debugPrint('[AiService] OpenAI chat failed (${e.runtimeType}): ${e.message}. Switching to Groq fallback.');
+      LoggingService.warning('OpenAI chat failed (${e.runtimeType}): ${e.message}. Switching to Groq fallback.', error: e);
     } catch (e) {
-      debugPrint('[AiService] OpenAI chat unexpected error: $e. Switching to Groq fallback.');
+      LoggingService.error('OpenAI chat unexpected error: $e. Switching to Groq fallback.', error: e);
     }
 
     // Groq fallback
@@ -58,9 +58,10 @@ class AiService {
         yield delta;
       }
     } on AiException catch (e) {
-      debugPrint('[AiService] Groq fallback chat also failed: ${e.message}');
+      LoggingService.error('Groq fallback chat also failed: ${e.message}', error: e);
       yield 'I\'m having trouble connecting right now. Please check your internet connection and try again.';
     } catch (e) {
+      LoggingService.error('Groq fallback chat unexpected error: $e', error: e);
       yield 'I\'m having trouble connecting right now. Please check your internet connection and try again.';
     }
   }
@@ -89,28 +90,28 @@ class AiService {
       final raw = await _openAi.runSymptomTriage(symptomText);
       if (_isValidTriageJson(raw)) return raw;
 
-      debugPrint('[AiService] OpenAI triage JSON invalid — retrying with stricter prompt.');
+      LoggingService.warning('OpenAI triage JSON invalid — retrying with stricter prompt.');
 
       // ── 2. OpenAI retry (stricter prompt) ──────────────────────────────
       final retried = await _openAi.runSymptomTriageStrict(symptomText);
       if (_isValidTriageJson(retried)) return retried;
 
-      debugPrint('[AiService] OpenAI triage retry still invalid — falling back to Groq.');
+      LoggingService.warning('OpenAI triage retry still invalid — falling back to Groq.');
     } on AiException catch (e) {
-      debugPrint('[AiService] OpenAI triage error: ${e.message}. Falling back to Groq.');
+      LoggingService.warning('OpenAI triage error: ${e.message}. Falling back to Groq.', error: e);
     } catch (e) {
-      debugPrint('[AiService] OpenAI triage unexpected error: $e. Falling back to Groq.');
+      LoggingService.error('OpenAI triage unexpected error: $e. Falling back to Groq.', error: e);
     }
 
     // ── 3. Groq fallback ───────────────────────────────────────────────────
     try {
       final groqRaw = await _groq.runSymptomTriage(symptomText);
       if (_isValidTriageJson(groqRaw)) return groqRaw;
-      debugPrint('[AiService] Groq triage JSON also invalid — returning safe fallback.');
+      LoggingService.warning('Groq triage JSON also invalid — returning safe fallback.');
     } on AiException catch (e) {
-      debugPrint('[AiService] Groq triage fallback also failed: ${e.message}');
+      LoggingService.error('Groq triage fallback also failed: ${e.message}', error: e);
     } catch (e) {
-      debugPrint('[AiService] Groq fallback unexpected error: $e');
+      LoggingService.error('Groq fallback unexpected error: $e', error: e);
     }
 
     // ── 4. Safe UI fallback JSON ───────────────────────────────────────────
@@ -134,7 +135,7 @@ class AiService {
 
       for (final field in AiConfig.triageRequiredFields) {
         if (!parsed.containsKey(field)) {
-          debugPrint('[AiService] Missing required triage field: $field');
+          LoggingService.warning('Missing required triage field: $field');
           return false;
         }
       }

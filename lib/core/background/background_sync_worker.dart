@@ -1,17 +1,18 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:workmanager/workmanager.dart';
 import '../../firebase_options.dart';
+import '../logging/logging_service.dart';
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
-    debugPrint('[BackgroundSyncWorker] executeTask started: $task');
     try {
       WidgetsFlutterBinding.ensureInitialized();
+      await LoggingService.initialize();
+      LoggingService.info('[BackgroundSyncWorker] executeTask started: $task');
       
       // Initialise Firebase if it hasn't been already
       if (Firebase.apps.isEmpty) {
@@ -28,12 +29,12 @@ void callbackDispatcher() {
           'lastBackgroundSyncUtcMillis': ServerValue.timestamp,
           'taskName': task,
         }).timeout(const Duration(seconds: 10));
-        debugPrint('[BackgroundSyncWorker] Telemetry sync complete for: ${user.uid}');
+        LoggingService.info('[BackgroundSyncWorker] Telemetry sync complete for: ${user.uid}');
       } else {
-        debugPrint('[BackgroundSyncWorker] No logged-in user found. Skipping sync.');
+        LoggingService.info('[BackgroundSyncWorker] No logged-in user found. Skipping sync.');
       }
     } catch (e) {
-      debugPrint('[BackgroundSyncWorker] Failed to run sync task: $e');
+      LoggingService.error('[BackgroundSyncWorker] Failed to run sync task', error: e);
       return false;
     }
     return true;
@@ -49,11 +50,10 @@ class BackgroundSyncWorker {
     try {
       await Workmanager().initialize(
         callbackDispatcher,
-        isInDebugMode: kDebugMode,
       );
-      debugPrint('[BackgroundSyncWorker] Workmanager initialised.');
+      LoggingService.info('[BackgroundSyncWorker] Workmanager initialised.');
     } catch (e) {
-      debugPrint('[BackgroundSyncWorker] Failed to initialise: $e');
+      LoggingService.error('[BackgroundSyncWorker] Failed to initialise', error: e);
     }
   }
 
@@ -68,9 +68,9 @@ class BackgroundSyncWorker {
           networkType: NetworkType.connected,
         ),
       );
-      debugPrint('[BackgroundSyncWorker] Periodic sync task registered.');
+      LoggingService.info('[BackgroundSyncWorker] Periodic sync task registered.');
     } catch (e) {
-      debugPrint('[BackgroundSyncWorker] Failed to schedule periodic task: $e');
+      LoggingService.error('[BackgroundSyncWorker] Failed to schedule periodic task', error: e);
     }
   }
 }

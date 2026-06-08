@@ -9,6 +9,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../core/firebase/firebase_bootstrap.dart';
 import '../../core/firebase/firebase_paths.dart';
+import '../../core/logging/logging_service.dart';
 import '../../core/security/emergency_parser.dart';
 import '../../core/ai/services/ai_service.dart';
 import '../../core/notifications/notification_service.dart';
@@ -237,9 +238,9 @@ class AppState extends ChangeNotifier {
       // after a 5-minute grace window.
       try {
         await credential.user?.delete();
-        debugPrint('[AppState] register(): rolled back orphan Auth user.');
+        LoggingService.info('[AppState] register(): rolled back orphan Auth user.');
       } catch (deleteErr) {
-        debugPrint('[AppState] register(): rollback delete failed — $deleteErr');
+        LoggingService.error('[AppState] register(): rollback delete failed', error: deleteErr);
       }
       rethrow;
     }
@@ -954,7 +955,7 @@ class AppState extends ChangeNotifier {
         _resetChatHistoryToGreeting();
       }
     } catch (e) {
-      debugPrint('Error loading chat history: $e');
+      LoggingService.error('Error loading chat history', error: e);
       _resetChatHistoryToGreeting();
     }
     notifyListeners();
@@ -989,7 +990,7 @@ class AppState extends ChangeNotifier {
         final latestRef = FirebaseDatabase.instance.ref('users/$uid/chat_sessions/latest');
         await latestRef.remove();
       } catch (e) {
-        debugPrint('Error archiving session: $e');
+        LoggingService.error('Error archiving session', error: e);
       }
     }
 
@@ -1042,7 +1043,7 @@ class AppState extends ChangeNotifier {
               .toList();
           await messagesRef.set(actualMessages);
         } catch (e) {
-          debugPrint('Error saving emergency pair: $e');
+          LoggingService.error('Error saving emergency pair', error: e);
         }
       }
 
@@ -1123,7 +1124,7 @@ class AppState extends ChangeNotifier {
               .toList();
           await messagesRef.set(actualMessages);
         } catch (e) {
-          debugPrint('Error saving chat session: $e');
+          LoggingService.error('Error saving chat session', error: e);
         }
       }
     } else {
@@ -1330,9 +1331,9 @@ class AppState extends ChangeNotifier {
       ] = now;
 
       _db.ref().update(atomicUpdate).then((_) {
-        debugPrint('[AppState] Prescription update successful.');
+        LoggingService.info('[AppState] Prescription update successful.');
       }).catchError((dynamic e, dynamic stack) {
-        debugPrint('[AppState] Prescription update failed: $e\n$stack');
+        LoggingService.error('[AppState] Prescription update failed', error: e, stackTrace: stack is StackTrace ? stack : null);
       });
     }
 

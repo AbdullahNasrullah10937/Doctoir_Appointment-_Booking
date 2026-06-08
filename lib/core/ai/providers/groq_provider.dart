@@ -1,11 +1,11 @@
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 
 import '../config/ai_config.dart';
 import '../config/ai_prompts.dart';
 import '../network/api_client.dart';
+import '../../logging/logging_service.dart';
 import 'ai_provider.dart';
 
 /// Design Decision: The Groq provider acts as a high-speed emergency fallback
@@ -111,7 +111,7 @@ class GroqProvider implements AiProvider {
           (choices[0]['message'] as Map<String, dynamic>)['content'] as String?;
       return content ?? _fallbackJson('No content');
     } on DioException catch (e) {
-      debugPrint('[GroqProvider] triage error: ${e.message}');
+      LoggingService.error('GroqProvider triage error: ${e.message}', error: e);
       throw mapDioException(e);
     }
   }

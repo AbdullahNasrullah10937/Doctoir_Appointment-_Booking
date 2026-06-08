@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/logging/logging_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/app_entities.dart';
 import '../../../domain/entities/doctor_application.dart';
@@ -229,7 +230,7 @@ class _DoctorSignupScreenState extends State<DoctorSignupScreen> {
         try {
           await cred.user?.delete();
         } catch (authDeleteError) {
-          debugPrint('Failed to delete auth user during rollback: $authDeleteError');
+          LoggingService.error('Failed to delete auth user during rollback', error: authDeleteError);
         }
       }
       if (!mounted) return;

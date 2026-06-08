@@ -9,6 +9,7 @@ import 'package:timezone/timezone.dart' as tz;
 
 import '../../../presentation/routes/app_router.dart';
 import '../../../domain/entities/app_entities.dart' hide NotificationType;
+import '../logging/logging_service.dart';
 import 'notification_payload.dart';
 
 // ─── Background handler ───────────────────────────────────────────────────────
@@ -17,7 +18,8 @@ import 'notification_payload.dart';
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  debugPrint('[FCM] Background message: ${message.messageId}');
+  await LoggingService.initialize();
+  LoggingService.info('[FCM] Background message: ${message.messageId}');
   await NotificationService._showLocalNotification(message);
 }
 
@@ -101,7 +103,7 @@ class NotificationService {
       });
     }
 
-    debugPrint('[FCM] Token: ${await FirebaseMessaging.instance.getToken()}');
+    LoggingService.info('[FCM] Token: ${await FirebaseMessaging.instance.getToken()}');
   }
 
   // ─── Permission ────────────────────────────────────────────────────────────
@@ -112,7 +114,7 @@ class NotificationService {
       badge: true,
       sound: true,
     );
-    debugPrint('[FCM] Permission: ${settings.authorizationStatus}');
+    LoggingService.info('[FCM] Permission: ${settings.authorizationStatus}');
 
     // Request permission on Android 13+ (API 33+)
     try {
@@ -121,7 +123,7 @@ class NotificationService {
               AndroidFlutterLocalNotificationsPlugin>()
           ?.requestNotificationsPermission();
     } catch (e) {
-      debugPrint('[NotificationService] Android notification permission request failed: $e');
+      LoggingService.error('[NotificationService] Android notification permission request failed', error: e);
     }
 
     // Request exact alarm permission on Android 12+ (API 31+)
@@ -131,14 +133,14 @@ class NotificationService {
               AndroidFlutterLocalNotificationsPlugin>()
           ?.requestExactAlarmsPermission();
     } catch (e) {
-      debugPrint('[NotificationService] Exact alarm permission request failed: $e');
+      LoggingService.error('[NotificationService] Exact alarm permission request failed', error: e);
     }
   }
 
   // ─── Foreground handler ────────────────────────────────────────────────────
 
   static void _handleForegroundMessage(RemoteMessage message) {
-    debugPrint('[FCM] Foreground message: ${message.messageId}');
+    LoggingService.info('[FCM] Foreground message: ${message.messageId}');
     // Show a local heads-up notification for foreground delivery
     _showLocalNotification(message);
   }
@@ -146,7 +148,7 @@ class NotificationService {
   // ─── Notification tap handler ──────────────────────────────────────────────
 
   static void _handleNotificationTap(RemoteMessage message) {
-    debugPrint('[FCM] Notification tapped: ${message.data}');
+    LoggingService.info('[FCM] Notification tapped: ${message.data}');
     final payload = NotificationPayload.fromMap(message.data);
     if (payload == null) return;
     _navigateFromPayload(payload);
@@ -305,7 +307,7 @@ class NotificationService {
           payload: AppRouter.medicationReminders,
         );
       } catch (e) {
-        debugPrint('[NotificationService] Failed to schedule reminder: $e');
+        LoggingService.error('[NotificationService] Failed to schedule reminder', error: e);
       }
     }
   }

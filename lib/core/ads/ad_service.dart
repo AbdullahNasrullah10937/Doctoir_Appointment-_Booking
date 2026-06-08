@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import 'ad_config.dart';
+import '../logging/logging_service.dart';
 
 /// Centralized AdMob lifecycle manager for Qurexa.
 ///
@@ -47,7 +48,7 @@ class AdService {
           // Consent info updated — show form if required by user's jurisdiction
           if (await ConsentInformation.instance.isConsentFormAvailable()) {
             await ConsentForm.loadAndShowConsentFormIfRequired((_) {
-              debugPrint('[AdService] Consent form dismissed — initializing MobileAds.');
+              LoggingService.info('Consent form dismissed — initializing MobileAds.');
               _initMobileAds();
             });
           } else {
@@ -55,12 +56,12 @@ class AdService {
           }
         },
         (FormError error) {
-          debugPrint('[AdService] Consent info update failed: ${error.message}');
+          LoggingService.warning('Consent info update failed: ${error.message}');
           _initMobileAds();
         },
       );
     } catch (e) {
-      debugPrint('[AdService] Initialization error (non-fatal): $e');
+      LoggingService.warning('Initialization error (non-fatal): $e', error: e);
       _initMobileAds();
     }
   }
@@ -71,7 +72,7 @@ class AdService {
       unawaited(preloadInterstitial());
       unawaited(preloadRewarded());
     } catch (e) {
-      debugPrint('[AdService] MobileAds init error (non-fatal): $e');
+      LoggingService.warning('MobileAds init error (non-fatal): $e', error: e);
     }
   }
 
@@ -90,12 +91,12 @@ class AdService {
         onAdLoaded: (ad) {
           _interstitialAd = ad;
           _interstitialLoading = false;
-          debugPrint('[AdService] Interstitial loaded.');
+          LoggingService.info('Interstitial loaded.');
         },
         onAdFailedToLoad: (error) {
           _interstitialAd = null;
           _interstitialLoading = false;
-          debugPrint('[AdService] Interstitial failed to load: ${error.message}');
+          LoggingService.warning('Interstitial failed to load: ${error.message}');
         },
       ),
     );
@@ -111,14 +112,14 @@ class AdService {
     final now = DateTime.now();
     if (_lastInterstitialShown != null &&
         now.difference(_lastInterstitialShown!) < _interstitialCooldown) {
-      debugPrint('[AdService] Interstitial skipped — cooldown active.');
+      LoggingService.info('Interstitial skipped — cooldown active.');
       onDone?.call();
       return;
     }
 
     // ── No ad loaded — graceful skip ────────────────────────────────────────
     if (_interstitialAd == null) {
-      debugPrint('[AdService] Interstitial skipped — not yet loaded.');
+      LoggingService.info('Interstitial skipped — not yet loaded.');
       onDone?.call();
       unawaited(preloadInterstitial()); // Trigger background reload
       return;
@@ -135,7 +136,7 @@ class AdService {
       },
       onAdFailedToShowFullScreenContent: (ad, error) {
         ad.dispose();
-        debugPrint('[AdService] Interstitial failed to show: ${error.message}');
+        LoggingService.warning('Interstitial failed to show: ${error.message}');
         onDone?.call();
         unawaited(preloadInterstitial());
       },
@@ -159,12 +160,12 @@ class AdService {
         onAdLoaded: (ad) {
           _rewardedAd = ad;
           _rewardedLoading = false;
-          debugPrint('[AdService] Rewarded ad loaded.');
+          LoggingService.info('Rewarded ad loaded.');
         },
         onAdFailedToLoad: (error) {
           _rewardedAd = null;
           _rewardedLoading = false;
-          debugPrint('[AdService] Rewarded ad failed to load: ${error.message}');
+          LoggingService.warning('Rewarded ad failed to load: ${error.message}');
         },
       ),
     );
@@ -181,7 +182,7 @@ class AdService {
     VoidCallback? onDone,
   }) async {
     if (_rewardedAd == null) {
-      debugPrint('[AdService] Rewarded ad skipped — not yet loaded.');
+      LoggingService.info('Rewarded ad skipped — not yet loaded.');
       onDone?.call();
       unawaited(preloadRewarded());
       return;
@@ -198,7 +199,7 @@ class AdService {
       },
       onAdFailedToShowFullScreenContent: (ad, error) {
         ad.dispose();
-        debugPrint('[AdService] Rewarded ad failed to show: ${error.message}');
+        LoggingService.warning('Rewarded ad failed to show: ${error.message}');
         onDone?.call();
         unawaited(preloadRewarded());
       },
@@ -206,7 +207,7 @@ class AdService {
 
     await ad.show(
       onUserEarnedReward: (_, reward) {
-        debugPrint('[AdService] Reward earned: ${reward.type} × ${reward.amount}');
+        LoggingService.info('Reward earned: ${reward.type} × ${reward.amount}');
         onEarnReward();
       },
     );

@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:firebase_performance/firebase_performance.dart';
-import 'package:flutter/foundation.dart';
 
+import '../../logging/logging_service.dart';
 import '../config/ai_config.dart';
 
 // ─── HTTP Performance Monitoring Interceptor ───────────────────────────────────
@@ -142,7 +142,7 @@ class _RetryInterceptor extends Interceptor {
     }
 
     extra[_retryKey] = retries + 1;
-    debugPrint('[RetryInterceptor] Retry ${extra[_retryKey]}/$maxRetries for ${err.requestOptions.path}');
+    LoggingService.warning('[RetryInterceptor] Retry ${extra[_retryKey]}/$maxRetries for ${err.requestOptions.path}');
 
     // Brief backoff before retry
     await Future<void>.delayed(const Duration(milliseconds: 500));
@@ -171,25 +171,19 @@ class _RetryInterceptor extends Interceptor {
 class _LoggingInterceptor extends Interceptor {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    if (kDebugMode) {
-      debugPrint('[Dio ▶] ${options.method} ${options.uri}');
-    }
+    LoggingService.debug('[Dio ▶] ${options.method} ${options.uri}');
     handler.next(options);
   }
 
   @override
   void onResponse(Response<dynamic> response, ResponseInterceptorHandler handler) {
-    if (kDebugMode) {
-      debugPrint('[Dio ◀] ${response.statusCode} ${response.requestOptions.uri}');
-    }
+    LoggingService.debug('[Dio ◀] ${response.statusCode} ${response.requestOptions.uri}');
     handler.next(response);
   }
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
-    if (kDebugMode) {
-      debugPrint('[Dio ✗] ${err.response?.statusCode} ${err.message}');
-    }
+    LoggingService.warning('[Dio ✗] ${err.response?.statusCode} ${err.message}');
     handler.next(err);
   }
 }
@@ -208,8 +202,8 @@ AiException mapDioException(DioException e) {
   final status = e.response?.statusCode;
 
   // Always log the full response body from the provider so we can diagnose issues.
-  if (kDebugMode && e.response?.data != null) {
-    debugPrint('[ApiClient] HTTP $status response body: ${e.response?.data}');
+  if (e.response?.data != null) {
+    LoggingService.warning('[ApiClient] HTTP $status response body: ${e.response?.data}');
   }
 
   if (status != null) {

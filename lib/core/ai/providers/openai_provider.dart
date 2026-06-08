@@ -2,11 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 
 import '../config/ai_config.dart';
 import '../config/ai_prompts.dart';
 import '../network/api_client.dart';
+import '../../logging/logging_service.dart';
 import 'ai_provider.dart';
 
 /// Design Decision: OpenAI is the primary provider because GPT-4.5/5 offers
@@ -143,7 +143,7 @@ class OpenAiProvider implements AiProvider {
       final content = (choices[0]['message'] as Map<String, dynamic>)['content'] as String?;
       return content ?? _triageFallbackJson('No content in response');
     } on DioException catch (e) {
-      debugPrint('[OpenAiProvider] triage error: ${e.message}');
+      LoggingService.error('OpenAiProvider triage error: ${e.message}', error: e);
       throw mapDioException(e);
     }
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 
+import '../../../core/logging/logging_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/app_entities.dart';
 import '../../routes/app_router.dart';
@@ -44,7 +45,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
       }
       return TimeOfDay(hour: hour, minute: minute);
     } catch (e) {
-      debugPrint('Error parsing time: $timeStr, $e');
+      LoggingService.error('Error parsing time: $timeStr', error: e);
       return null;
     }
   }

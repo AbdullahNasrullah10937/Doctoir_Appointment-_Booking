@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'core/background/background_sync_worker.dart';
+import 'core/logging/logging_service.dart';
 import 'core/notifications/notification_service.dart';
 import 'core/security/encryption_service.dart';
 import 'firebase_options.dart';
@@ -15,15 +16,19 @@ import 'presentation/app.dart';
 
 /// Entry point — initialization order matters:
 /// 1. Flutter engine binding
-/// 2. FCM background handler (must precede Firebase.initializeApp)
-/// 3. Load .env
-/// 4. Firebase initialization
-/// 5. Global crash reporting configuration (Crashlytics)
-/// 6. Workmanager background sync initialization
-/// 7. EncryptionService (reads from secure storage — must run after binding)
-/// 8. runApp
+/// 2. LoggingService initialization
+/// 3. FCM background handler (must precede Firebase.initializeApp)
+/// 4. Load .env
+/// 5. Firebase initialization
+/// 6. Global crash reporting configuration (Crashlytics)
+/// 7. Workmanager background sync initialization
+/// 8. EncryptionService (reads from secure storage — must run after binding)
+/// 9. runApp
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // ── Logging Service ──────────────────────────────────────────────────────────
+  await LoggingService.initialize();
 
   // ── FCM background handler ───────────────────────────────────────────────────
   // MUST be registered before Firebase.initializeApp so the background isolate
@@ -33,7 +38,7 @@ Future<void> main() async {
   try {
     await dotenv.load(fileName: ".env");
   } catch (e) {
-    debugPrint('Could not load .env file: $e');
+    LoggingService.error('Could not load .env file', error: e);
   }
 
   // Guard against duplicate initialization on some Android devices where the
@@ -51,9 +56,9 @@ Future<void> main() async {
   } catch (e) {
     final msg = e.toString();
     if (msg.contains('duplicate-app')) {
-      debugPrint('[Firebase] Already initialised by native layer — continuing.');
+      LoggingService.info('[Firebase] Already initialised by native layer — continuing.');
     } else {
-      debugPrint('[Firebase] Init error: $e');
+      LoggingService.error('[Firebase] Init error', error: e);
     }
   }
 
@@ -67,9 +72,9 @@ Future<void> main() async {
       FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
       return true;
     };
-    debugPrint('[Crashlytics] Global fatal exception handlers registered.');
+    LoggingService.info('[Crashlytics] Global fatal exception handlers registered.');
   } catch (e) {
-    debugPrint('[Crashlytics] Setup error: $e');
+    LoggingService.error('[Crashlytics] Setup error', error: e);
   }
 
   // ── Background Sync Worker ───────────────────────────────────────────────────
